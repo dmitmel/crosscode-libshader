@@ -24,11 +24,10 @@ uniform float random;
 uniform float time;
 uniform vec2 real_size;
 // uniform vec2 mouse;
-// uniform float context_scale;
+uniform float context_scale;
 
 in vec2 frag_texcoord;
 out vec4 out_color;
-
 
 float max2(vec2 v) { return max(v.x , v.y); }
 float mul2(vec2 v) { return     v.x * v.y ; }
@@ -46,6 +45,10 @@ vec3 hsv2rgb(vec3 c) {
 // in small increments
 float simple_random(float n) {
   return fract(sin(n) * 43758.5453123);
+}
+
+float simple_random(vec2 n) {
+  return simple_random(dot(n, vec2(12.9898, 4.1414)));
 }
 
 // taken from https://gist.github.com/patriciogonzalezvivo/670c22f3966e662d2f83#generic-123-noise
@@ -81,8 +84,9 @@ const float SCAN_LINES_HEIGHT = 4.0; // pixels
 const float SCAN_LINE_RGB_RANGE = 5.0 / 255.0;
 const float SCREEN_CURVATURE = 0.2;
 const float SCREEN_FRAME_SHADOW_LENGTH = 0.5;
-// const vec4 SCREEN_FRAME_COLOR = vec4(vec3(0.0), 1.0);
 const vec4 SCREEN_FRAME_COLOR = vec4(vec3(1.0), 1.0);
+const float NOISE_UPDATE_INTERVAL = 0.10;
+const float NOISE_RGB_RANGE = 8.0 / 255.0;
 
 // taken from https://github.com/Swordfish90/cool-retro-term/blob/f2f38c0e0d86a32766f6fe8fc6063f1d578b55de/app/qml/NewTerminalFrame.qml#L31-L35
 // it's quite fascinating that a complex-looking transform that I want to get
@@ -112,9 +116,10 @@ void draw_frame(vec2 texcoord) {
 }
 
 vec4 get_pixel(vec2 pos) {
-  return pos.x < 0.0 || pos.y < 0.0 || pos.x > 1.0 || pos.y > 1.0
-    ? vec4(0.0, 0.0, 0.0, 1.0)
-    : texture(tex, pos);
+  if (pos.x < 0.0 || pos.y < 0.0 || pos.x > 1.0 || pos.y > 1.0) {
+    return vec4(0.0, 0.0, 0.0, 1.0);
+  }
+  return texture(tex, pos);
 }
 
 void main(void) {
@@ -184,6 +189,10 @@ void main(void) {
     + refresh_line_intensity * REFRESH_LINE_RGB_RANGE
     // implementation of ambient light was taken from https://github.com/Swordfish90/cool-retro-term/blob/f2f38c0e0d86a32766f6fe8fc6063f1d578b55de/app/qml/ShaderTerminal.qml#L299-L303
     + AMBIENT_LIGHT * pow(1.0 - distance_from_center, 2.0)
+    + (simple_random(
+        floor(texcoord_real / context_scale) * context_scale +
+        vec2(random_seed + floor(time / NOISE_UPDATE_INTERVAL) * NOISE_UPDATE_INTERVAL)
+      ) * 2.0 - 1.0) * NOISE_RGB_RANGE
   );
 
   out_color = vec4(out_color_rgb, color2.a);
