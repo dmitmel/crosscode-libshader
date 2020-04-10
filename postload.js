@@ -15,20 +15,24 @@
 
 export default function run(vertexShaderSrc, fragmentShaderSrc) {
   ig.module('libshader')
-    .requires('impact.base.game', 'dom.ready')
+    .requires(
+      'impact.base.system',
+      'dom.ready',
+      'impact.base.game',
+      'impact.base.input',
+      'game.feature.control.control',
+    )
     .defines(() => {
       const SIZE_OF_FLOAT = 4;
 
       class WebGLRenderer {
         /**
-         * @param {HTMLCanvasElement} canvasGL
-         * @param {HTMLCanvasElement} canvas2D
+         * @param {ig.System} system
          */
-        constructor(canvasGL, canvas2D) {
-          this.canvasGL = canvasGL;
-          this.canvas2D = canvas2D;
+        constructor(system) {
+          this.system = system;
 
-          this.gl = this.canvasGL.getContext('webgl2');
+          this.gl = this.system.canvasGL.getContext('webgl2');
           let { gl } = this;
 
           let vertexShader = this.compileShader(
@@ -54,6 +58,7 @@ export default function run(vertexShaderSrc, fragmentShaderSrc) {
                 1.0,  1.0, 1.0, 0.0,
                -1.0,  1.0, 0.0, 0.0,
                -1.0, -1.0, 0.0, 1.0,
+
                 1.0,  1.0, 1.0, 0.0,
                 1.0, -1.0, 1.0, 1.0,
                -1.0, -1.0, 0.0, 1.0,
@@ -150,8 +155,8 @@ export default function run(vertexShaderSrc, fragmentShaderSrc) {
           if (this.realSizeUniform != null) {
             gl.uniform2f(
               this.realSizeUniform,
-              this.canvas2D.width,
-              this.canvas2D.height,
+              this.system.canvas.width,
+              this.system.canvas.height,
             );
           }
           if (this.mouseUniform != null) {
@@ -162,7 +167,7 @@ export default function run(vertexShaderSrc, fragmentShaderSrc) {
             );
           }
           if (this.contextScaleUniform != null) {
-            gl.uniform1f(this.contextScaleUniform, ig.system.contextScale);
+            gl.uniform1f(this.contextScaleUniform, this.system.contextScale);
           }
 
           gl.bindTexture(gl.TEXTURE_2D, this.texture);
@@ -172,18 +177,19 @@ export default function run(vertexShaderSrc, fragmentShaderSrc) {
             gl.RGBA,
             gl.RGBA,
             gl.UNSIGNED_BYTE,
-            this.canvas2D,
+            this.system.canvas,
           );
 
           gl.drawArrays(gl.TRIANGLES, 0, 6);
         }
 
-        onResize(screenWidth, screenHeight) {
-          this.canvasGL.width = this.canvas2D.width;
-          this.canvasGL.height = this.canvas2D.height;
-          this.canvasGL.style.width = `${screenWidth}px`;
-          this.canvasGL.style.height = `${screenHeight}px`;
-          this.gl.viewport(0, 0, this.canvasGL.width, this.canvasGL.height);
+        onResize() {
+          let { canvas: canvas2D, canvasGL } = this.system;
+          canvasGL.width = canvas2D.width;
+          canvasGL.height = canvas2D.height;
+          canvasGL.style.width = `${this.system.screenWidth}px`;
+          canvasGL.style.height = `${this.system.screenHeight}px`;
+          this.gl.viewport(0, 0, canvasGL.width, canvasGL.height);
         }
       }
 
@@ -200,37 +206,45 @@ export default function run(vertexShaderSrc, fragmentShaderSrc) {
             this.canvasGL.id = 'canvas';
             this.inputDom.replaceChild(this.canvasGL, this.canvas);
 
-            this.webGLRenderer = new WebGLRenderer(this.canvasGL, this.canvas);
+            this.webGLRenderer = new WebGLRenderer(this);
           }
 
           this.parent(width, height, scale);
-          this.webGLRenderer.onResize(this.screenWidth, this.screenHeight);
+          if (this.webGLRenderer != null) {
+            this.webGLRenderer.onResize();
+          }
         },
 
         setCanvasSize(width, height, hideBorder) {
           this.parent(width, height, hideBorder);
-          this.webGLRenderer.onResize(this.screenWidth, this.screenHeight);
+          if (this.webGLRenderer != null) {
+            this.webGLRenderer.onResize();
+          }
         },
       });
 
       ig.Game.inject({
         finalDraw() {
           this.parent();
-          ig.system.webGLRenderer.render();
+          if (ig.system.webGLRenderer != null) ig.system.webGLRenderer.render();
         },
       });
 
       ig.Input.inject({
         mousemove(event) {
-          let { getMouseCoords } = ig.Input;
-          getMouseCoords(this.mouse, event, ig.system.canvasGL);
-          ig.Input.getMouseCoords = () => {
-            // skip the first call, which is the only one
-            ig.Input.getMouseCoords = getMouseCoords;
-          };
+          if (ig.system.webGLRenderer != null) {
+            let { getMouseCoords } = ig.Input;
+            getMouseCoords(this.mouse, event, ig.system.canvasGL);
+            ig.Input.getMouseCoords = () => {
+              // skip the first call, which is the only one
+              ig.Input.getMouseCoords = getMouseCoords;
+            };
 
-          this.parent(event);
-          ig.Input.getMouseCoords = getMouseCoords;
+            this.parent(event);
+            ig.Input.getMouseCoords = getMouseCoords;
+          } else {
+            this.parent(event);
+          }
         },
       });
     });
