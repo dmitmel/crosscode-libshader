@@ -20,6 +20,7 @@ precision highp float;
 
 uniform sampler2D tex;
 uniform float random_seed;
+uniform float random;
 uniform float time;
 uniform vec2 real_size;
 // uniform vec2 mouse;
@@ -40,24 +41,24 @@ vec3 hsv2rgb(vec3 c) {
   return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 }
 
-// // taken from https://gist.github.com/yiwenl/3f804e80d0930e34a0b33359259b556c#file-glsl-rotation-2d
-// vec2 rotate(vec2 point, float a) {
-//   float s = sin(a);
-//   float c = cos(a);
-//   mat2 m = mat2(c, -s, s, c);
-//   return m * point;
-// }
-
 // taken from https://gist.github.com/patriciogonzalezvivo/670c22f3966e662d2f83#generic-123-noise
-float simple_noise_1(float n) {
+// NOTE: This function doesn't give apprently random results when `n` is changed
+// in small increments
+float simple_random(float n) {
   return fract(sin(n) * 43758.5453123);
 }
 
 // taken from https://gist.github.com/patriciogonzalezvivo/670c22f3966e662d2f83#generic-123-noise
-float simple_noise_2(float p) {
+float simple_noise(float p) {
   float fl = floor(p);
   float fc = fract(p);
-  return mix(simple_noise_1(fl), simple_noise_1(fl + 1.0), fc);
+  return mix(simple_random(fl), simple_random(fl + 1.0), fc);
+}
+
+float normalized_to_range(float n, vec2 range) {
+  float min = range.x;
+  float max = range.y;
+  return min + n * (max - min);
 }
 
 const float AMBIENT_LIGHT = 0.1;
@@ -68,10 +69,14 @@ const float FLICKERING_RGB_RANGE = 0.0;
 const float FLICKERING_TIME_FACTOR = 50.0;
 const float REFRESH_LINE_SPEED = 5.0; // seconds per screen
 const float REFRESH_LINE_TOTAL_HEIGHT = 1.25; // screens
-const float REFRESH_LINE_RGB_RANGE = 20.0 / 255.0;
+const float REFRESH_LINE_RGB_RANGE = 25.0 / 255.0;
 const float HORIZONTAL_DISTORTION_TIME_FACTOR = 10.0;
 const float HORIZONTAL_DISTORTION_SECTION_HEIGHT = 4.0; // pixels
 const float HORIZONTAL_DISTORTION_MAX = 1.0; // pixels
+const float LARGE_HORIZONTAL_LAG_PROBABILITY = 0.04;
+const float LARGE_HORIZONTAL_LAG_TIME_FACTOR = 1000.0;
+const vec2 LARGE_HORIZONTAL_LAG_HEIGHT_RANGE = vec2(2.0, 8.0);
+const vec2 LARGE_HORIZONTAL_LAG_SLOPE_RANGE = vec2(1.0, 8.0);
 const float SCAN_LINES_HEIGHT = 4.0; // pixels
 const float SCAN_LINE_RGB_RANGE = 5.0 / 255.0;
 const float SCREEN_CURVATURE = 0.2;
@@ -106,6 +111,12 @@ void draw_frame(vec2 texcoord) {
   out_color = vec4(color * alpha, alpha);
 }
 
+vec4 get_pixel(vec2 pos) {
+  return pos.x < 0.0 || pos.y < 0.0 || pos.x > 1.0 || pos.y > 1.0
+    ? vec4(0.0, 0.0, 0.0, 1.0)
+    : texture(tex, pos);
+}
+
 void main(void) {
   vec2 center_screen_coord = vec2(0.5) - frag_texcoord;
   float distance_from_center = length(center_screen_coord);
@@ -132,17 +143,36 @@ void main(void) {
   float refresh_line_intensity =
     fract((texcoord.y - time / REFRESH_LINE_SPEED) / REFRESH_LINE_TOTAL_HEIGHT);
 
-  float horizontal_distortion = simple_noise_2(
+  float horizontal_distortion = simple_noise(
       random_seed
     + time * HORIZONTAL_DISTORTION_TIME_FACTOR
     + floor(texcoord_real.y / HORIZONTAL_DISTORTION_SECTION_HEIGHT) * HORIZONTAL_DISTORTION_SECTION_HEIGHT
   ) * (HORIZONTAL_DISTORTION_MAX / real_size.x);
+
+  float large_horizontal_lag_location =
+    simple_random(random * 187.802597 + 46256.998768) *
+    real_size.y / LARGE_HORIZONTAL_LAG_PROBABILITY;
+  float large_horizontal_lag_height = normalized_to_range(
+    simple_random(random * 96.485718 + 20162.228449),
+    LARGE_HORIZONTAL_LAG_HEIGHT_RANGE
+  );
+  float large_horizontal_lag_slope = normalized_to_range(
+    simple_random(random * 211.777528 + 12306.323303),
+    LARGE_HORIZONTAL_LAG_SLOPE_RANGE
+  );
+
   vec2 random_distortion = vec2(horizontal_distortion, 0);
 
+  float large_horizontal_lag =
+    large_horizontal_lag_height - distance(texcoord_real.y, large_horizontal_lag_location);
+  if (large_horizontal_lag > 0.0) {
+    random_distortion.x -= large_horizontal_lag_slope * large_horizontal_lag / real_size.x;
+  }
+
   vec2 color_sampling_offset = vec2(COLOR_SHIFT_DISTANCE / real_size.x, 0);
-  vec4 color1 = texture(tex, texcoord + random_distortion - color_sampling_offset);
-  vec4 color2 = texture(tex, texcoord + random_distortion                        );
-  vec4 color3 = texture(tex, texcoord + random_distortion + color_sampling_offset);
+  vec4 color1 = get_pixel(texcoord + random_distortion - color_sampling_offset);
+  vec4 color2 = get_pixel(texcoord + random_distortion                        );
+  vec4 color3 = get_pixel(texcoord + random_distortion + color_sampling_offset);
 
   float scan_line_intensity =
     // -1.0 if the condition is false, 1.0 if it is true

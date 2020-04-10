@@ -93,6 +93,7 @@ export default function run(vertexShaderSrc, fragmentShaderSrc) {
             program,
             'random_seed',
           );
+          this.randomUniform = gl.getUniformLocation(program, 'random');
           this.timeUniform = gl.getUniformLocation(program, 'time');
           this.realSizeUniform = gl.getUniformLocation(program, 'real_size');
           this.mouseUniform = gl.getUniformLocation(program, 'mouse');
@@ -151,6 +152,9 @@ export default function run(vertexShaderSrc, fragmentShaderSrc) {
           }
           if (this.timeUniform != null) {
             gl.uniform1f(this.timeUniform, ig.Timer.time);
+          }
+          if (this.randomUniform != null) {
+            gl.uniform1f(this.randomUniform, Math.random());
           }
           if (this.realSizeUniform != null) {
             gl.uniform2f(
