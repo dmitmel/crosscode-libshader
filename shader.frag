@@ -60,6 +60,7 @@ float simple_noise_2(float p) {
   return mix(simple_noise_1(fl), simple_noise_1(fl + 1.0), fc);
 }
 
+const float AMBIENT_LIGHT = 0.1;
 const float COLOR_SHIFT_DISTANCE = 3.0; // pixels
 // slow eye burn mode:
 // const float FLICKERING_RGB_RANGE = 3.0 / 255.0;
@@ -106,6 +107,8 @@ void draw_frame(vec2 texcoord) {
 }
 
 void main(void) {
+  vec2 center_screen_coord = vec2(0.5) - frag_texcoord;
+  float distance_from_center = length(center_screen_coord);
   // NOTE: frag_texcoord is a coordinate in the screen space!!!
   vec2 texcoord = apply_screen_curvature(frag_texcoord);
 
@@ -145,11 +148,13 @@ void main(void) {
     // -1.0 if the condition is false, 1.0 if it is true
     float(mod(texcoord_real.y, SCAN_LINES_HEIGHT * 2.0) >= SCAN_LINES_HEIGHT) * 2.0 - 1.0;
 
-  out_color = vec4(
-    vec3(color1.r, color2.g, color3.b) + vec3(
-        sin(time * FLICKERING_TIME_FACTOR) * FLICKERING_RGB_RANGE
-      + scan_line_intensity * SCAN_LINE_RGB_RANGE
-      + refresh_line_intensity * REFRESH_LINE_RGB_RANGE
-    ), color2.a
+  vec3 out_color_rgb = vec3(color1.r, color2.g, color3.b) + vec3(
+      sin(time * FLICKERING_TIME_FACTOR) * FLICKERING_RGB_RANGE
+    + scan_line_intensity * SCAN_LINE_RGB_RANGE
+    + refresh_line_intensity * REFRESH_LINE_RGB_RANGE
+    // implementation of ambient light was taken from https://github.com/Swordfish90/cool-retro-term/blob/f2f38c0e0d86a32766f6fe8fc6063f1d578b55de/app/qml/ShaderTerminal.qml#L299-L303
+    + AMBIENT_LIGHT * pow(1.0 - distance_from_center, 2.0)
   );
+
+  out_color = vec4(out_color_rgb, color2.a);
 }
