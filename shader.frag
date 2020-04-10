@@ -81,8 +81,6 @@ const vec4 SCREEN_FRAME_COLOR = vec4(vec3(1.0), 1.0);
 // taken from https://github.com/Swordfish90/cool-retro-term/blob/f2f38c0e0d86a32766f6fe8fc6063f1d578b55de/app/qml/NewTerminalFrame.qml#L31-L35
 // it's quite fascinating that a complex-looking transform that I want to get
 // can be achieved with such a simple function AND no matricies whatsoever!
-// here's an implementation fo this function in JS: https://github.com/Swordfish90/cool-retro-term/blob/79773ba95c01e43ee5fb19340c653cbb2369942d/app/qml/PreprocessedTerminal.qml#L221-L230
-// I may need it in the future for correcting mouse position
 vec2 apply_screen_curvature(vec2 point) {
   vec2 center_texcoord = vec2(0.5) - point;
   float distortion = dot(center_texcoord, center_texcoord) * SCREEN_CURVATURE;

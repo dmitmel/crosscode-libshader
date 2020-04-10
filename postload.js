@@ -191,6 +191,21 @@ export default function run(vertexShaderSrc, fragmentShaderSrc) {
           canvasGL.style.height = `${this.system.screenHeight}px`;
           this.gl.viewport(0, 0, canvasGL.width, canvasGL.height);
         }
+
+        transformScreenPoint(dest) {
+          const SCREEN_CURVATURE = 0.2;
+
+          let { x, y } = dest;
+          let { screenWidth, screenHeight } = this.system;
+          x /= screenWidth;
+          y /= screenHeight;
+
+          let cx = 0.5 - x;
+          let cy = 0.5 - y;
+          let distortion = (cx * cx + cy * cy) * SCREEN_CURVATURE;
+          dest.x = (x - cx * (1 + distortion) * distortion) * screenWidth;
+          dest.y = (y - cy * (1 + distortion) * distortion) * screenHeight;
+        }
       }
 
       ig.System.inject({
@@ -234,7 +249,10 @@ export default function run(vertexShaderSrc, fragmentShaderSrc) {
         mousemove(event) {
           if (ig.system.webGLRenderer != null) {
             let { getMouseCoords } = ig.Input;
+
             getMouseCoords(this.mouse, event, ig.system.canvasGL);
+            ig.system.webGLRenderer.transformScreenPoint(this.mouse);
+
             ig.Input.getMouseCoords = () => {
               // skip the first call, which is the only one
               ig.Input.getMouseCoords = getMouseCoords;
