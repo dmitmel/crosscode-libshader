@@ -23,7 +23,7 @@ uniform float random_seed;
 uniform float random;
 uniform float time;
 uniform vec2 real_size;
-// uniform vec2 mouse;
+uniform vec2 mouse;
 uniform float context_scale;
 
 in vec2 frag_texcoord;
@@ -64,8 +64,14 @@ float normalized_to_range(float n, vec2 range) {
   return min + n * (max - min);
 }
 
+float clip_to_step(float n, float st) {
+  return floor(n / st) * st;
+}
+
+const vec2 INTERNAL_SIZE = vec2(568.0, 320.0);
+
 const float AMBIENT_LIGHT = 0.1;
-const float COLOR_SHIFT_DISTANCE = 3.0; // pixels
+const float COLOR_SHIFT_DISTANCE = 1.5 / INTERNAL_SIZE.x;
 // slow eye burn mode:
 // const float FLICKERING_RGB_RANGE = 3.0 / 255.0;
 const float FLICKERING_RGB_RANGE = 0.0;
@@ -74,13 +80,13 @@ const float REFRESH_LINE_SPEED = 5.0; // seconds per screen
 const float REFRESH_LINE_TOTAL_HEIGHT = 1.25; // screens
 const float REFRESH_LINE_RGB_RANGE = 25.0 / 255.0;
 const float HORIZONTAL_DISTORTION_TIME_FACTOR = 10.0;
-const float HORIZONTAL_DISTORTION_SECTION_HEIGHT = 4.0; // pixels
-const float HORIZONTAL_DISTORTION_MAX = 1.0; // pixels
-const float LARGE_HORIZONTAL_LAG_PROBABILITY = 0.04;
+const float HORIZONTAL_DISTORTION_SECTION_HEIGHT = 2.0 / INTERNAL_SIZE.y; // pixels
+const float HORIZONTAL_DISTORTION_MAX = 0.75 / INTERNAL_SIZE.x;
+const float LARGE_HORIZONTAL_LAG_PROBABILITY = 0.05;
 const float LARGE_HORIZONTAL_LAG_TIME_FACTOR = 1000.0;
-const vec2 LARGE_HORIZONTAL_LAG_HEIGHT_RANGE = vec2(2.0, 8.0);
-const vec2 LARGE_HORIZONTAL_LAG_SLOPE_RANGE = vec2(1.0, 8.0);
-const float SCAN_LINES_HEIGHT = 4.0; // pixels
+const vec2 LARGE_HORIZONTAL_LAG_HEIGHT_RANGE = vec2(1.0, 4.0) / INTERNAL_SIZE;
+const vec2 LARGE_HORIZONTAL_LAG_SLOPE_RANGE = vec2(0.5, 4.0);
+const float SCAN_LINES_HEIGHT = 2.0 / INTERNAL_SIZE.y;
 const float SCAN_LINE_RGB_RANGE = 5.0 / 255.0;
 const float SCREEN_CURVATURE = 0.2;
 const float SCREEN_FRAME_SHADOW_LENGTH = 0.5;
@@ -134,14 +140,14 @@ void main(void) {
     return;
   }
 
-  vec2 texcoord_real = texcoord * real_size;
+  // vec2 texcoord_real = texcoord * real_size;
 
   // vertical wave
   // float offset = (sin(texcoord_real.x / 40.0 + time * 4.0) * 10.0) / real_size.y;
   // out_color = texture(tex, frag_texcoord + vec2(0, offset));
 
   // trip-shader (no mushrooms were involved!)
-  // float p = distance(texcoord_real, mouse * context_scale);
+  // float p = distance(texcoord, mouse / INTERNAL_SIZE);
   // vec4 rainbow_color = vec4(hsv2rgb(vec3(p / 200.0 + time, 1.0, 1.0)), 1.0);
   // out_color = mix(texture(tex, frag_texcoord), rainbow_color, 1.0 / 4.0);
 
@@ -151,12 +157,12 @@ void main(void) {
   float horizontal_distortion = simple_noise(
       random_seed
     + time * HORIZONTAL_DISTORTION_TIME_FACTOR
-    + floor(texcoord_real.y / HORIZONTAL_DISTORTION_SECTION_HEIGHT) * HORIZONTAL_DISTORTION_SECTION_HEIGHT
-  ) * (HORIZONTAL_DISTORTION_MAX / real_size.x);
+    + 13074.930928 * clip_to_step(texcoord.y, HORIZONTAL_DISTORTION_SECTION_HEIGHT)
+  ) * HORIZONTAL_DISTORTION_MAX;
 
   float large_horizontal_lag_location =
-    simple_random(random * 187.802597 + 46256.998768) *
-    real_size.y / LARGE_HORIZONTAL_LAG_PROBABILITY;
+    simple_random(random * 187.802597 + 46256.998768) /
+    LARGE_HORIZONTAL_LAG_PROBABILITY;
   float large_horizontal_lag_height = normalized_to_range(
     simple_random(random * 96.485718 + 20162.228449),
     LARGE_HORIZONTAL_LAG_HEIGHT_RANGE
@@ -166,22 +172,27 @@ void main(void) {
     LARGE_HORIZONTAL_LAG_SLOPE_RANGE
   );
 
-  vec2 random_distortion = vec2(horizontal_distortion, 0);
-
   float large_horizontal_lag =
-    large_horizontal_lag_height - distance(texcoord_real.y, large_horizontal_lag_location);
-  if (large_horizontal_lag > 0.0) {
-    random_distortion.x -= large_horizontal_lag_slope * large_horizontal_lag / real_size.x;
-  }
-
-  vec2 color_sampling_offset = vec2(COLOR_SHIFT_DISTANCE / real_size.x, 0);
-  vec4 color1 = get_pixel(texcoord + random_distortion - color_sampling_offset);
-  vec4 color2 = get_pixel(texcoord + random_distortion                        );
-  vec4 color3 = get_pixel(texcoord + random_distortion + color_sampling_offset);
+    large_horizontal_lag_height - distance(texcoord.y, large_horizontal_lag_location);
+  float large_horizontal_lag_distortion =
+    // `step` acts here as a branchless comparison of `large_horizontal_lag` with 0
+    step(0.0, large_horizontal_lag) * large_horizontal_lag_slope * large_horizontal_lag;
 
   float scan_line_intensity =
     // -1.0 if the condition is false, 1.0 if it is true
-    float(mod(texcoord_real.y, SCAN_LINES_HEIGHT * 2.0) >= SCAN_LINES_HEIGHT) * 2.0 - 1.0;
+    float(mod(texcoord.y, SCAN_LINES_HEIGHT * 2.0) >= SCAN_LINES_HEIGHT) * 2.0 - 1.0;
+
+  float noise_intensity = simple_random(
+    floor(texcoord * INTERNAL_SIZE) +
+    vec2(random_seed + clip_to_step(time, NOISE_UPDATE_INTERVAL))
+  ) * 2.0 - 1.0;
+
+  texcoord.x += horizontal_distortion - large_horizontal_lag_distortion;
+
+  vec2 color_sampling_offset = vec2(COLOR_SHIFT_DISTANCE, 0);
+  vec4 color1 = get_pixel(texcoord - color_sampling_offset);
+  vec4 color2 = get_pixel(texcoord                        );
+  vec4 color3 = get_pixel(texcoord + color_sampling_offset);
 
   vec3 out_color_rgb = vec3(color1.r, color2.g, color3.b) + vec3(
       sin(time * FLICKERING_TIME_FACTOR) * FLICKERING_RGB_RANGE
@@ -189,10 +200,7 @@ void main(void) {
     + refresh_line_intensity * REFRESH_LINE_RGB_RANGE
     // implementation of ambient light was taken from https://github.com/Swordfish90/cool-retro-term/blob/f2f38c0e0d86a32766f6fe8fc6063f1d578b55de/app/qml/ShaderTerminal.qml#L299-L303
     + AMBIENT_LIGHT * pow(1.0 - distance_from_center, 2.0)
-    + (simple_random(
-        floor(texcoord_real / context_scale) * context_scale +
-        vec2(random_seed + floor(time / NOISE_UPDATE_INTERVAL) * NOISE_UPDATE_INTERVAL)
-      ) * 2.0 - 1.0) * NOISE_RGB_RANGE
+    + noise_intensity * NOISE_RGB_RANGE
   );
 
   out_color = vec4(out_color_rgb, color2.a);
