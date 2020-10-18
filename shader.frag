@@ -19,6 +19,7 @@ precision highp float;
 #endif
 
 uniform sampler2D tex;
+uniform sampler2D tex_lut;
 uniform float random_seed;
 uniform float random;
 uniform float time;
@@ -94,6 +95,11 @@ const vec4 SCREEN_FRAME_COLOR = vec4(vec3(1.0), 1.0);
 const float NOISE_UPDATE_INTERVAL = 0.10;
 const float NOISE_RGB_RANGE = 8.0 / 255.0;
 
+const vec3 LUT_COLORS = vec3(32.0);
+const float LUT_CONTRIBUTION = 1.0;
+const vec2 LUT_SIZE = vec2(LUT_COLORS.r * LUT_COLORS.b, LUT_COLORS.g);
+const vec3 LUT_MAX_COLOR = LUT_COLORS - 1.0;
+
 // taken from https://github.com/Swordfish90/cool-retro-term/blob/f2f38c0e0d86a32766f6fe8fc6063f1d578b55de/app/qml/NewTerminalFrame.qml#L31-L35
 // it's quite fascinating that a complex-looking transform that I want to get
 // can be achieved with such a simple function AND no matricies whatsoever!
@@ -121,11 +127,30 @@ void draw_frame(vec2 texcoord) {
   out_color = vec4(color * alpha, alpha);
 }
 
+// TODO: implement LUT color grading in a separate pass to reduce the number of lookups
+vec4 apply_lut(in vec4 color) {
+  color = clamp(color, 0.0, 1.0);
+
+  vec2  lut_rg_pos = vec2(0.5) + color.rg * LUT_MAX_COLOR.rg;
+  float lut_b_pos1 = floor(color.b * LUT_MAX_COLOR.b) * LUT_COLORS.b;
+  float lut_b_pos2 =  ceil(color.b * LUT_MAX_COLOR.b) * LUT_COLORS.b;
+
+  vec2 lut_pos1 = (lut_rg_pos + vec2(lut_b_pos1, 0.0)) / LUT_SIZE;
+  vec2 lut_pos2 = (lut_rg_pos + vec2(lut_b_pos2, 0.0)) / LUT_SIZE;
+
+  vec4 graded_color1 = texture(tex_lut, lut_pos1);
+  vec4 graded_color2 = texture(tex_lut, lut_pos2);
+  vec4 graded_color = mix(graded_color1, graded_color2, fract(color.b * LUT_MAX_COLOR.b));
+
+  return graded_color;
+}
+
 vec4 get_pixel(vec2 pos) {
   if (pos.x < 0.0 || pos.y < 0.0 || pos.x > 1.0 || pos.y > 1.0) {
     return vec4(0.0, 0.0, 0.0, 1.0);
   }
-  return texture(tex, pos);
+  vec4 color = texture(tex, pos);
+  return mix(color, apply_lut(color), LUT_CONTRIBUTION);
 }
 
 void main(void) {
@@ -172,6 +197,7 @@ void main(void) {
     LARGE_HORIZONTAL_LAG_SLOPE_RANGE
   );
 
+  // TODO: fix on Intel GPUs
   float large_horizontal_lag =
     large_horizontal_lag_height - distance(texcoord.y, large_horizontal_lag_location);
   float large_horizontal_lag_distortion =

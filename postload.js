@@ -13,7 +13,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-export default function run(vertexShaderSrc, fragmentShaderSrc) {
+/**
+ * @param {string} vertexShaderSrc
+ * @param {string} fragmentShaderSrc
+ * @param {HTMLImageElement} lutTextureData
+ */
+export default function run(
+  vertexShaderSrc,
+  fragmentShaderSrc,
+  lutTextureData,
+) {
   ig.module('libshader')
     .requires(
       'impact.base.system',
@@ -32,6 +41,7 @@ export default function run(vertexShaderSrc, fragmentShaderSrc) {
         constructor(system) {
           this.system = system;
 
+          /** @type {WebGL2RenderingContext} */
           this.gl = this.system.canvasGL.getContext('webgl2');
           let { gl } = this;
 
@@ -89,6 +99,7 @@ export default function run(vertexShaderSrc, fragmentShaderSrc) {
           gl.enableVertexAttribArray(texcoordAttrib);
 
           this.textureUniform = gl.getUniformLocation(program, 'tex');
+          this.lutTextureUniform = gl.getUniformLocation(program, 'tex_lut');
           this.randomSeedUniform = gl.getUniformLocation(
             program,
             'random_seed',
@@ -107,6 +118,15 @@ export default function run(vertexShaderSrc, fragmentShaderSrc) {
           }
 
           this.canvasTexture = this.createTexture();
+          this.lutTexture = this.createTexture();
+          gl.texImage2D(
+            gl.TEXTURE_2D,
+            0,
+            gl.RGBA,
+            gl.RGBA,
+            gl.UNSIGNED_BYTE,
+            lutTextureData,
+          );
         }
 
         compileShader(type, source) {
@@ -149,33 +169,7 @@ export default function run(vertexShaderSrc, fragmentShaderSrc) {
         render() {
           let { gl } = this;
 
-          if (this.textureUniform != null) {
-            gl.uniform1i(this.textureUniform, this.texture);
-          }
-          if (this.timeUniform != null) {
-            gl.uniform1f(this.timeUniform, ig.Timer.time);
-          }
-          if (this.randomUniform != null) {
-            gl.uniform1f(this.randomUniform, Math.random());
-          }
-          if (this.realSizeUniform != null) {
-            gl.uniform2f(
-              this.realSizeUniform,
-              this.system.canvas.width,
-              this.system.canvas.height,
-            );
-          }
-          if (this.mouseUniform != null) {
-            gl.uniform2f(
-              this.mouseUniform,
-              sc.control.getMouseX(),
-              sc.control.getMouseY(),
-            );
-          }
-          if (this.contextScaleUniform != null) {
-            gl.uniform1f(this.contextScaleUniform, this.system.contextScale);
-          }
-
+          gl.activeTexture(gl.TEXTURE0);
           gl.bindTexture(gl.TEXTURE_2D, this.canvasTexture);
           gl.texImage2D(
             gl.TEXTURE_2D,
@@ -185,6 +179,25 @@ export default function run(vertexShaderSrc, fragmentShaderSrc) {
             gl.UNSIGNED_BYTE,
             this.system.canvas,
           );
+
+          gl.activeTexture(gl.TEXTURE1);
+          gl.bindTexture(gl.TEXTURE_2D, this.lutTexture);
+
+          gl.uniform1i(this.textureUniform, 0);
+          gl.uniform1i(this.lutTextureUniform, 1);
+          gl.uniform1f(this.timeUniform, ig.Timer.time);
+          gl.uniform1f(this.randomUniform, Math.random());
+          gl.uniform2f(
+            this.realSizeUniform,
+            this.system.canvas.width,
+            this.system.canvas.height,
+          );
+          gl.uniform2f(
+            this.mouseUniform,
+            sc.control.getMouseX(),
+            sc.control.getMouseY(),
+          );
+          gl.uniform1f(this.contextScaleUniform, this.system.contextScale);
 
           gl.drawArrays(gl.TRIANGLES, 0, 6);
         }

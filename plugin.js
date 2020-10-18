@@ -23,18 +23,36 @@ export default class LibshaderPlugin extends Plugin {
 
   /**
    * @param {string} url
-   * @returns {string}
+   * @returns {Promise<string>}
    */
-  async readModFile(url) {
+  async readFile(url) {
     let response = await fetch('/' + this.baseDirectory + url);
     return await response.text();
   }
 
+  /**
+   * @param {string} url
+   * @returns {Promise<HTMLImageElement>}
+   */
+  async loadImage(url) {
+    return new Promise((resolve, reject) => {
+      let img = new Image();
+      img.src = '/' + this.baseDirectory + url;
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error(`Failed to load image '${url}'`));
+    });
+  }
+
   async postload() {
-    let [vertexShaderSrc, fragmentShaderSrc] = await Promise.all([
-      this.readModFile('shader.vert'),
-      this.readModFile('shader.frag'),
+    let [
+      vertexShaderSrc,
+      fragmentShaderSrc,
+      lutTextureData,
+    ] = await Promise.all([
+      this.readFile('shader.vert'),
+      this.readFile('shader.frag'),
+      this.loadImage('lut.png'),
     ]);
-    return runPostload(vertexShaderSrc, fragmentShaderSrc);
+    return runPostload(vertexShaderSrc, fragmentShaderSrc, lutTextureData);
   }
 }
