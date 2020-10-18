@@ -14,11 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-in vec2 position;
-in vec2 texcoord;
-out vec2 frag_texcoord;
+in vec2 a_position;
+in vec2 a_texcoord;
+out vec2 v_texcoord;
 
 void main(void) {
-  gl_Position = vec4(position, 0.0, 1.0);
-  frag_texcoord = texcoord;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+  v_texcoord = a_texcoord;
 }

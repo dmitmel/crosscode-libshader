@@ -76,7 +76,7 @@ export default function run(
             gl.STATIC_DRAW,
           );
 
-          let positionAttrib = gl.getAttribLocation(program, 'position');
+          let positionAttrib = gl.getAttribLocation(program, 'a_position');
           gl.vertexAttribPointer(
             positionAttrib,
             2,
@@ -87,7 +87,7 @@ export default function run(
           );
           gl.enableVertexAttribArray(positionAttrib);
 
-          let texcoordAttrib = gl.getAttribLocation(program, 'texcoord');
+          let texcoordAttrib = gl.getAttribLocation(program, 'a_texcoord');
           gl.vertexAttribPointer(
             texcoordAttrib,
             2,
@@ -98,19 +98,19 @@ export default function run(
           );
           gl.enableVertexAttribArray(texcoordAttrib);
 
-          this.textureUniform = gl.getUniformLocation(program, 'tex');
-          this.lutTextureUniform = gl.getUniformLocation(program, 'tex_lut');
+          this.textureUniform = gl.getUniformLocation(program, 'u_tex');
+          this.lutTextureUniform = gl.getUniformLocation(program, 'u_tex_lut');
           this.randomSeedUniform = gl.getUniformLocation(
             program,
-            'random_seed',
+            'u_random_seed',
           );
-          this.randomUniform = gl.getUniformLocation(program, 'random');
-          this.timeUniform = gl.getUniformLocation(program, 'time');
-          this.realSizeUniform = gl.getUniformLocation(program, 'real_size');
-          this.mouseUniform = gl.getUniformLocation(program, 'mouse');
+          this.randomUniform = gl.getUniformLocation(program, 'u_random');
+          this.timeUniform = gl.getUniformLocation(program, 'u_time');
+          this.realSizeUniform = gl.getUniformLocation(program, 'u_real_size');
+          this.mouseUniform = gl.getUniformLocation(program, 'u_mouse');
           this.contextScaleUniform = gl.getUniformLocation(
             program,
-            'context_scale',
+            'u_context_scale',
           );
 
           if (this.randomSeedUniform != null) {

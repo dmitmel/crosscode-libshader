@@ -18,16 +18,16 @@
 precision highp float;
 #endif
 
-uniform sampler2D tex;
-uniform sampler2D tex_lut;
-uniform float random_seed;
-uniform float random;
-uniform float time;
-uniform vec2 real_size;
-uniform vec2 mouse;
-uniform float context_scale;
+uniform sampler2D u_tex;
+uniform sampler2D u_tex_lut;
+uniform float u_random_seed;
+uniform float u_random;
+uniform float u_time;
+uniform vec2 u_real_size;
+uniform vec2 u_mouse;
+uniform float u_context_scale;
 
-in vec2 frag_texcoord;
+in vec2 v_texcoord;
 out vec4 out_color;
 
 float max2(vec2 v) { return max(v.x , v.y); }
@@ -118,7 +118,7 @@ void draw_frame(vec2 texcoord) {
   float out_shadow = max2(1.0 - smoothstep(vec2(-out_shadow_length), vec2(0.0), texcoord) + smoothstep(vec2(1.0), vec2(1.0 + out_shadow_length), texcoord));
   out_shadow = clamp(sqrt(out_shadow), 0.0, 1.0);
   color += SCREEN_FRAME_COLOR.rgb * out_shadow;
-  vec2 aadelta = 1.0 / real_size;
+  vec2 aadelta = 1.0 / u_real_size;
   alpha = sum2(1.0 - smoothstep(vec2(0.0), aadelta, texcoord) + smoothstep(vec2(1.0) - aadelta, vec2(1.0), texcoord));
   alpha = clamp(alpha, 0.0, 1.0) * mix(1.0, 0.9, out_shadow);
   float in_shadow = 1.0 - mul2(smoothstep(0.0, in_shadow_length, texcoord) - smoothstep(1.0 - in_shadow_length, 1.0, texcoord));
@@ -138,8 +138,8 @@ vec4 apply_lut(in vec4 color) {
   vec2 lut_pos1 = (lut_rg_pos + vec2(lut_b_pos1, 0.0)) / LUT_SIZE;
   vec2 lut_pos2 = (lut_rg_pos + vec2(lut_b_pos2, 0.0)) / LUT_SIZE;
 
-  vec4 graded_color1 = texture(tex_lut, lut_pos1);
-  vec4 graded_color2 = texture(tex_lut, lut_pos2);
+  vec4 graded_color1 = texture(u_tex_lut, lut_pos1);
+  vec4 graded_color2 = texture(u_tex_lut, lut_pos2);
   vec4 graded_color = mix(graded_color1, graded_color2, fract(color.b * LUT_MAX_COLOR.b));
 
   return graded_color;
@@ -149,15 +149,15 @@ vec4 get_pixel(vec2 pos) {
   if (pos.x < 0.0 || pos.y < 0.0 || pos.x > 1.0 || pos.y > 1.0) {
     return vec4(0.0, 0.0, 0.0, 1.0);
   }
-  vec4 color = texture(tex, pos);
+  vec4 color = texture(u_tex, pos);
   return mix(color, apply_lut(color), LUT_CONTRIBUTION);
 }
 
 void main(void) {
-  vec2 center_screen_coord = vec2(0.5) - frag_texcoord;
+  vec2 center_screen_coord = vec2(0.5) - v_texcoord;
   float distance_from_center = length(center_screen_coord);
-  // NOTE: frag_texcoord is a coordinate in the screen space!!!
-  vec2 texcoord = apply_screen_curvature(frag_texcoord);
+  // NOTE: v_texcoord is a coordinate in the screen space!!!
+  vec2 texcoord = apply_screen_curvature(v_texcoord);
 
   // can this be done without an `if`?
   if (texcoord.x < 0.0 || texcoord.y < 0.0 || texcoord.x > 1.0 || texcoord.y > 1.0) {
@@ -165,35 +165,35 @@ void main(void) {
     return;
   }
 
-  // vec2 texcoord_real = texcoord * real_size;
+  // vec2 texcoord_real = texcoord * u_real_size;
 
   // vertical wave
-  // float offset = (sin(texcoord_real.x / 40.0 + time * 4.0) * 10.0) / real_size.y;
-  // out_color = texture(tex, frag_texcoord + vec2(0, offset));
+  // float offset = (sin(texcoord_real.x / 40.0 + u_time * 4.0) * 10.0) / u_real_size.y;
+  // out_color = texture(u_tex, v_texcoord + vec2(0, offset));
 
   // trip-shader (no mushrooms were involved!)
-  // float p = distance(texcoord, mouse / INTERNAL_SIZE);
-  // vec4 rainbow_color = vec4(hsv2rgb(vec3(p / 200.0 + time, 1.0, 1.0)), 1.0);
-  // out_color = mix(texture(tex, frag_texcoord), rainbow_color, 1.0 / 4.0);
+  // float p = distance(texcoord, u_mouse / INTERNAL_SIZE);
+  // vec4 rainbow_color = vec4(hsv2rgb(vec3(p / 200.0 + u_time, 1.0, 1.0)), 1.0);
+  // out_color = mix(texture(u_tex, v_texcoord), rainbow_color, 1.0 / 4.0);
 
   float refresh_line_intensity =
-    fract((texcoord.y - time / REFRESH_LINE_SPEED) / REFRESH_LINE_TOTAL_HEIGHT);
+    fract((texcoord.y - u_time / REFRESH_LINE_SPEED) / REFRESH_LINE_TOTAL_HEIGHT);
 
   float horizontal_distortion = simple_noise(
-      random_seed
-    + time * HORIZONTAL_DISTORTION_TIME_FACTOR
+      u_random_seed
+    + u_time * HORIZONTAL_DISTORTION_TIME_FACTOR
     + 13074.930928 * clip_to_step(texcoord.y, HORIZONTAL_DISTORTION_SECTION_HEIGHT)
   ) * HORIZONTAL_DISTORTION_MAX;
 
   float large_horizontal_lag_location =
-    simple_random(random * 187.802597 + 46256.998768) /
+    simple_random(u_random * 187.802597 + 46256.998768) /
     LARGE_HORIZONTAL_LAG_PROBABILITY;
   float large_horizontal_lag_height = normalized_to_range(
-    simple_random(random * 96.485718 + 20162.228449),
+    simple_random(u_random * 96.485718 + 20162.228449),
     LARGE_HORIZONTAL_LAG_HEIGHT_RANGE
   );
   float large_horizontal_lag_slope = normalized_to_range(
-    simple_random(random * 211.777528 + 12306.323303),
+    simple_random(u_random * 211.777528 + 12306.323303),
     LARGE_HORIZONTAL_LAG_SLOPE_RANGE
   );
 
@@ -210,7 +210,7 @@ void main(void) {
 
   float noise_intensity = simple_random(
     floor(texcoord * INTERNAL_SIZE) +
-    vec2(random_seed + clip_to_step(time, NOISE_UPDATE_INTERVAL))
+    vec2(u_random_seed + clip_to_step(u_time, NOISE_UPDATE_INTERVAL))
   ) * 2.0 - 1.0;
 
   texcoord.x += horizontal_distortion - large_horizontal_lag_distortion;
@@ -221,7 +221,7 @@ void main(void) {
   vec4 color3 = get_pixel(texcoord + color_sampling_offset);
 
   vec3 out_color_rgb = vec3(color1.r, color2.g, color3.b) + vec3(
-      sin(time * FLICKERING_TIME_FACTOR) * FLICKERING_RGB_RANGE
+      sin(u_time * FLICKERING_TIME_FACTOR) * FLICKERING_RGB_RANGE
     + scan_line_intensity * SCAN_LINE_RGB_RANGE
     + refresh_line_intensity * REFRESH_LINE_RGB_RANGE
     // implementation of ambient light was taken from https://github.com/Swordfish90/cool-retro-term/blob/f2f38c0e0d86a32766f6fe8fc6063f1d578b55de/app/qml/ShaderTerminal.qml#L299-L303
