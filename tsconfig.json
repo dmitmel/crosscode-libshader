@@ -1,0 +1,12 @@
+{
+  "include": ["src"],
+  "compilerOptions": {
+    "outDir": "dist",
+    "sourceMap": true,
+    "strict": true,
+    "module": "ESNext",
+    "target": "ES2019",
+    "allowJs": true,
+    "forceConsistentCasingInFileNames": true
+  }
+}

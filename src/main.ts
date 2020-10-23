@@ -15,35 +15,28 @@
 
 import runPostload from './postload.js';
 
-export default class LibshaderPlugin extends Plugin {
-  constructor(mod) {
-    super(mod);
+export default class LibshaderPlugin {
+  private baseDirectory: string;
+
+  public constructor(mod: { baseDirectory: string }) {
     this.baseDirectory = mod.baseDirectory;
   }
 
-  /**
-   * @param {string} url
-   * @returns {Promise<string>}
-   */
-  async readFile(url) {
-    let response = await fetch('/' + this.baseDirectory + url);
+  private async readFile(url: string): Promise<string> {
+    let response = await fetch(`/${this.baseDirectory}${url}`);
     return await response.text();
   }
 
-  /**
-   * @param {string} url
-   * @returns {Promise<HTMLImageElement>}
-   */
-  async loadImage(url) {
+  private async loadImage(url: string): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
       let img = new Image();
-      img.src = '/' + this.baseDirectory + url;
+      img.src = `/${this.baseDirectory}${url}`;
       img.onload = () => resolve(img);
       img.onerror = () => reject(new Error(`Failed to load image '${url}'`));
     });
   }
 
-  async postload() {
+  public async postload(): Promise<void> {
     let [vertexShaderSrc, fragmentShaderSrc, lutTextureData] = await Promise.all([
       this.readFile('shader.vert'),
       this.readFile('shader.frag'),

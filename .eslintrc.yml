@@ -1,0 +1,27 @@
+extends: eslint-config-dmitmel/presets/node
+env:
+  browser: true
+parserOptions:
+  sourceType: module
+
+rules:
+  node/no-missing-import: off
+  node/no-unsupported-features/es-syntax:
+    - error
+    - ignores:
+        - modules
+        - dynamicImport
+
+overrides:
+  - files: '**/*.ts'
+    extends: eslint-config-dmitmel/presets/typescript-with-type-checking-addon
+
+  - files: '**/*.d.ts'
+    rules:
+      '@typescript-eslint/explicit-member-accessibility': off
+      '@typescript-eslint/no-extraneous-class': off
+      no-var: off
+
+  - files: 'src/**/*.ts'
+    parserOptions:
+      project: 'tsconfig.json'
