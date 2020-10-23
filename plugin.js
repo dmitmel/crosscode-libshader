@@ -44,11 +44,7 @@ export default class LibshaderPlugin extends Plugin {
   }
 
   async postload() {
-    let [
-      vertexShaderSrc,
-      fragmentShaderSrc,
-      lutTextureData,
-    ] = await Promise.all([
+    let [vertexShaderSrc, fragmentShaderSrc, lutTextureData] = await Promise.all([
       this.readFile('shader.vert'),
       this.readFile('shader.frag'),
       this.loadImage('lut.png'),

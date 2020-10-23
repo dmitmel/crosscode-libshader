@@ -18,11 +18,7 @@
  * @param {string} fragmentShaderSrc
  * @param {HTMLImageElement} lutTextureData
  */
-export default function run(
-  vertexShaderSrc,
-  fragmentShaderSrc,
-  lutTextureData,
-) {
+export default function run(vertexShaderSrc, fragmentShaderSrc, lutTextureData) {
   ig.module('libshader')
     .requires(
       'impact.base.system',
@@ -45,15 +41,9 @@ export default function run(
           this.gl = this.system.canvasGL.getContext('webgl2');
           let { gl } = this;
 
-          let vertexShader = this.compileShader(
-            gl.VERTEX_SHADER,
-            vertexShaderSrc,
-          );
+          let vertexShader = this.compileShader(gl.VERTEX_SHADER, vertexShaderSrc);
 
-          let fragmentShader = this.compileShader(
-            gl.FRAGMENT_SHADER,
-            fragmentShaderSrc,
-          );
+          let fragmentShader = this.compileShader(gl.FRAGMENT_SHADER, fragmentShaderSrc);
 
           let program = this.createProgram(vertexShader, fragmentShader);
           gl.useProgram(program);
@@ -77,14 +67,7 @@ export default function run(
           );
 
           let positionAttrib = gl.getAttribLocation(program, 'a_position');
-          gl.vertexAttribPointer(
-            positionAttrib,
-            2,
-            gl.FLOAT,
-            false,
-            4 * SIZE_OF_FLOAT,
-            0,
-          );
+          gl.vertexAttribPointer(positionAttrib, 2, gl.FLOAT, false, 4 * SIZE_OF_FLOAT, 0);
           gl.enableVertexAttribArray(positionAttrib);
 
           let texcoordAttrib = gl.getAttribLocation(program, 'a_texcoord');
@@ -100,33 +83,18 @@ export default function run(
 
           this.textureUniform = gl.getUniformLocation(program, 'u_tex');
           this.lutTextureUniform = gl.getUniformLocation(program, 'u_tex_lut');
-          this.randomSeedUniform = gl.getUniformLocation(
-            program,
-            'u_random_seed',
-          );
+          this.randomSeedUniform = gl.getUniformLocation(program, 'u_random_seed');
           this.randomUniform = gl.getUniformLocation(program, 'u_random');
           this.timeUniform = gl.getUniformLocation(program, 'u_time');
           this.realSizeUniform = gl.getUniformLocation(program, 'u_real_size');
           this.mouseUniform = gl.getUniformLocation(program, 'u_mouse');
-          this.contextScaleUniform = gl.getUniformLocation(
-            program,
-            'u_context_scale',
-          );
+          this.contextScaleUniform = gl.getUniformLocation(program, 'u_context_scale');
 
-          if (this.randomSeedUniform != null) {
-            gl.uniform1f(this.randomSeedUniform, Math.random());
-          }
+          gl.uniform1f(this.randomSeedUniform, Math.random());
 
           this.canvasTexture = this.createTexture();
           this.lutTexture = this.createTexture();
-          gl.texImage2D(
-            gl.TEXTURE_2D,
-            0,
-            gl.RGBA,
-            gl.RGBA,
-            gl.UNSIGNED_BYTE,
-            lutTextureData,
-          );
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, lutTextureData);
         }
 
         compileShader(type, source) {
@@ -171,14 +139,7 @@ export default function run(
 
           gl.activeTexture(gl.TEXTURE0);
           gl.bindTexture(gl.TEXTURE_2D, this.canvasTexture);
-          gl.texImage2D(
-            gl.TEXTURE_2D,
-            0,
-            gl.RGBA,
-            gl.RGBA,
-            gl.UNSIGNED_BYTE,
-            this.system.canvas,
-          );
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.system.canvas);
 
           gl.activeTexture(gl.TEXTURE1);
           gl.bindTexture(gl.TEXTURE_2D, this.lutTexture);
@@ -187,16 +148,8 @@ export default function run(
           gl.uniform1i(this.lutTextureUniform, 1);
           gl.uniform1f(this.timeUniform, ig.Timer.time);
           gl.uniform1f(this.randomUniform, Math.random());
-          gl.uniform2f(
-            this.realSizeUniform,
-            this.system.canvas.width,
-            this.system.canvas.height,
-          );
-          gl.uniform2f(
-            this.mouseUniform,
-            sc.control.getMouseX(),
-            sc.control.getMouseY(),
-          );
+          gl.uniform2f(this.realSizeUniform, this.system.canvas.width, this.system.canvas.height);
+          gl.uniform2f(this.mouseUniform, sc.control.getMouseX(), sc.control.getMouseY());
           gl.uniform1f(this.contextScaleUniform, this.system.contextScale);
 
           gl.drawArrays(gl.TRIANGLES, 0, 6);
