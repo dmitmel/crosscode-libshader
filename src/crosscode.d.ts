@@ -38,6 +38,10 @@ declare global {
     class Timer {
       static time: number;
     }
+
+    class Input {
+      static getMouseCoords(outVec2: Vec2, event: MouseEvent, element: HTMLElement): void;
+    }
   }
 
   namespace sc {

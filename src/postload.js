@@ -82,16 +82,19 @@ export default function run(vertexShaderSrc, fragmentShaderSrc, lutTextureData) 
           if (webGLRenderer != null) {
             let { getMouseCoords } = ig.Input;
 
-            getMouseCoords(this.mouse, event, webGLRenderer.canvas);
-            webGLRenderer.transformScreenPoint(this.mouse);
+            try {
+              getMouseCoords(this.mouse, event, webGLRenderer.canvas);
+              webGLRenderer.transformScreenPoint(this.mouse);
 
-            ig.Input.getMouseCoords = () => {
-              // skip the first call, which is the only one
+              ig.Input.getMouseCoords = () => {
+                // skip the first call, which is the only one
+                ig.Input.getMouseCoords = getMouseCoords;
+              };
+
+              this.parent(event);
+            } finally {
               ig.Input.getMouseCoords = getMouseCoords;
-            };
-
-            this.parent(event);
-            ig.Input.getMouseCoords = getMouseCoords;
+            }
           } else {
             this.parent(event);
           }
