@@ -13,22 +13,26 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-const SIZE_OF_FLOAT = 4;
+import * as ngl from './ngl/all.js';
+import { GL } from './ngl/core.js';
 
 export class WebGLRenderer {
-  private readonly gl: WebGL2RenderingContext;
+  private readonly gl: GL;
 
-  private readonly textureUniform: WebGLUniformLocation;
-  private readonly lutTextureUniform: WebGLUniformLocation;
-  private readonly randomSeedUniform: WebGLUniformLocation;
-  private readonly randomUniform: WebGLUniformLocation;
-  private readonly timeUniform: WebGLUniformLocation;
-  private readonly realSizeUniform: WebGLUniformLocation;
-  private readonly mouseUniform: WebGLUniformLocation;
-  private readonly contextScaleUniform: WebGLUniformLocation;
+  private readonly program: ngl.Program;
+  private readonly textureUniform: ngl.Uniform;
+  private readonly lutTextureUniform: ngl.Uniform;
+  private readonly randomSeedUniform: ngl.Uniform;
+  private readonly randomUniform: ngl.Uniform;
+  private readonly timeUniform: ngl.Uniform;
+  private readonly realSizeUniform: ngl.Uniform;
+  private readonly mouseUniform: ngl.Uniform;
+  private readonly contextScaleUniform: ngl.Uniform;
 
-  private readonly canvasTexture: WebGLTexture;
-  private readonly lutTexture: WebGLTexture;
+  private readonly vertexBuffer: WebGLBuffer;
+
+  private readonly canvasTexture: ngl.Texture2D;
+  private readonly lutTexture: ngl.Texture2D;
 
   public constructor(
     public readonly canvas: HTMLCanvasElement,
@@ -41,116 +45,84 @@ export class WebGLRenderer {
     if (gl == null) throw new Error('Failed to initialize WebGL2 context');
     this.gl = gl;
 
-    let vertexShader = this.compileShader(gl.VERTEX_SHADER, vertexShaderSrc);
-    let fragmentShader = this.compileShader(gl.FRAGMENT_SHADER, fragmentShaderSrc);
-    let program = this.createProgram(vertexShader, fragmentShader);
-    gl.useProgram(program);
+    let vertexShader = ngl.Shader.easyCreate(this.gl, ngl.ShaderType.Vertex, vertexShaderSrc);
+    let fragmentShader = ngl.Shader.easyCreate(this.gl, ngl.ShaderType.Fragment, fragmentShaderSrc);
+    this.program = ngl.Program.easyCreate(this.gl, vertexShader, fragmentShader);
+    vertexShader.free();
+    fragmentShader.free();
+    this.program.bind();
 
-    let vertexBuf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuf);
+    this.vertexBuffer = gl.createBuffer()!;
+    gl.bindBuffer(GL.ARRAY_BUFFER, this.vertexBuffer);
     gl.bufferData(
-      gl.ARRAY_BUFFER,
+      GL.ARRAY_BUFFER,
       // prettier-ignore
       new Float32Array([
         // x     y    u    v
           1.0,  1.0, 1.0, 0.0,
          -1.0,  1.0, 0.0, 0.0,
-         -1.0, -1.0, 0.0, 1.0,
-
-          1.0,  1.0, 1.0, 0.0,
           1.0, -1.0, 1.0, 1.0,
          -1.0, -1.0, 0.0, 1.0,
       ]),
-      gl.STATIC_DRAW,
+      GL.STATIC_DRAW,
     );
 
-    let positionAttrib = gl.getAttribLocation(program, 'a_position');
-    gl.vertexAttribPointer(positionAttrib, 2, gl.FLOAT, false, 4 * SIZE_OF_FLOAT, 0);
+    let positionAttrib = this.program.getAttribute('a_position');
+    gl.vertexAttribPointer(positionAttrib, 2, GL.FLOAT, false, 4 * ngl.SIZE_OF_FLOAT, 0);
     gl.enableVertexAttribArray(positionAttrib);
 
-    let texcoordAttrib = gl.getAttribLocation(program, 'a_texcoord');
+    let texcoordAttrib = this.program.getAttribute('a_texcoord');
     gl.vertexAttribPointer(
       texcoordAttrib,
       2,
-      gl.FLOAT,
+      GL.FLOAT,
       false,
-      4 * SIZE_OF_FLOAT,
-      2 * SIZE_OF_FLOAT,
+      4 * ngl.SIZE_OF_FLOAT,
+      2 * ngl.SIZE_OF_FLOAT,
     );
     gl.enableVertexAttribArray(texcoordAttrib);
 
-    this.textureUniform = gl.getUniformLocation(program, 'u_tex')!;
-    this.lutTextureUniform = gl.getUniformLocation(program, 'u_tex_lut')!;
-    this.randomSeedUniform = gl.getUniformLocation(program, 'u_random_seed')!;
-    this.randomUniform = gl.getUniformLocation(program, 'u_random')!;
-    this.timeUniform = gl.getUniformLocation(program, 'u_time')!;
-    this.realSizeUniform = gl.getUniformLocation(program, 'u_real_size')!;
-    this.mouseUniform = gl.getUniformLocation(program, 'u_mouse')!;
-    this.contextScaleUniform = gl.getUniformLocation(program, 'u_context_scale')!;
+    this.textureUniform = this.program.getUniform('u_tex');
+    this.lutTextureUniform = this.program.getUniform('u_tex_lut');
+    this.randomSeedUniform = this.program.getUniform('u_random_seed').set1f(Math.random());
+    this.randomUniform = this.program.getUniform('u_random');
+    this.timeUniform = this.program.getUniform('u_time');
+    this.realSizeUniform = this.program.getUniform('u_real_size');
+    this.mouseUniform = this.program.getUniform('u_mouse');
+    this.contextScaleUniform = this.program.getUniform('u_context_scale');
 
-    gl.uniform1f(this.randomSeedUniform, Math.random());
-
-    this.canvasTexture = this.createTexture();
-    this.lutTexture = this.createTexture();
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, lutTextureData);
+    this.canvasTexture = ngl.Texture2D.easyCreate(gl);
+    this.lutTexture = ngl.Texture2D.easyCreate(gl).setData(ngl.TextureFormat.RGBA, lutTextureData);
 
     // NOTE: onResize doesn't need to be called in this constructor!
   }
 
-  private compileShader(type: number, source: string): WebGLShader {
-    let { gl } = this;
-    let shader = gl.createShader(type)!;
-    gl.shaderSource(shader, source);
-    gl.compileShader(shader);
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      throw new Error(gl.getShaderInfoLog(shader)!);
-    }
-    return shader;
-  }
-
-  private createProgram(vertexShader: WebGLShader, fragmentShader: WebGLShader): WebGLProgram {
-    let { gl } = this;
-    let program = gl.createProgram()!;
-    gl.attachShader(program, vertexShader);
-    gl.attachShader(program, fragmentShader);
-    gl.linkProgram(program);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      throw new Error(gl.getProgramInfoLog(program)!);
-    }
-    return program;
-  }
-
-  private createTexture(): WebGLTexture {
-    let { gl } = this;
-    let texture = gl.createTexture()!;
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    return texture;
+  public free(): void {
+    this.program.free();
+    this.gl.deleteBuffer(this.vertexBuffer);
+    this.canvasTexture.free();
+    this.lutTexture.free();
   }
 
   public render(): void {
     let { gl } = this;
     let canvas2D = this.system.canvas;
 
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.canvasTexture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas2D);
+    gl.activeTexture(GL.TEXTURE0);
+    this.canvasTexture.bind().setData(ngl.TextureFormat.RGBA, canvas2D);
 
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, this.lutTexture);
+    gl.activeTexture(GL.TEXTURE1);
+    this.lutTexture.bind();
 
-    gl.uniform1i(this.textureUniform, 0);
-    gl.uniform1i(this.lutTextureUniform, 1);
-    gl.uniform1f(this.timeUniform, ig.Timer.time);
-    gl.uniform1f(this.randomUniform, Math.random());
-    gl.uniform2f(this.realSizeUniform, canvas2D.width, canvas2D.height);
-    gl.uniform2f(this.mouseUniform, sc.control.getMouseX(), sc.control.getMouseY());
-    gl.uniform1f(this.contextScaleUniform, this.system.contextScale);
+    this.textureUniform.set1i(0);
+    this.lutTextureUniform.set1i(1);
+    this.timeUniform.set1f(ig.Timer.time);
+    this.randomUniform.set1f(Math.random());
+    this.realSizeUniform.set2f(canvas2D.width, canvas2D.height);
+    this.mouseUniform.set2f(sc.control.getMouseX(), sc.control.getMouseY());
+    this.contextScaleUniform.set1f(this.system.contextScale);
 
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    gl.drawArrays(GL.TRIANGLE_STRIP, 0, 4);
   }
 
   public onResize(): void {
