@@ -25,6 +25,7 @@ export class WebGLRenderer {
   private readonly randomSeedUniform: ngl.Uniform;
   private readonly randomUniform: ngl.Uniform;
   private readonly timeUniform: ngl.Uniform;
+  private readonly sizeUniform: ngl.Uniform;
   private readonly realSizeUniform: ngl.Uniform;
   private readonly mouseUniform: ngl.Uniform;
   private readonly contextScaleUniform: ngl.Uniform;
@@ -87,6 +88,7 @@ export class WebGLRenderer {
     this.randomSeedUniform = this.program.getUniform('u_random_seed').set1f(Math.random());
     this.randomUniform = this.program.getUniform('u_random');
     this.timeUniform = this.program.getUniform('u_time');
+    this.sizeUniform = this.program.getUniform('u_size');
     this.realSizeUniform = this.program.getUniform('u_real_size');
     this.mouseUniform = this.program.getUniform('u_mouse');
     this.contextScaleUniform = this.program.getUniform('u_context_scale');
@@ -118,6 +120,7 @@ export class WebGLRenderer {
     this.lutTextureUniform.set1i(1);
     this.timeUniform.set1f(ig.Timer.time);
     this.randomUniform.set1f(Math.random());
+    this.sizeUniform.set2f(ig.system.width, ig.system.height);
     this.realSizeUniform.set2f(canvas2D.width, canvas2D.height);
     this.mouseUniform.set2f(sc.control.getMouseX(), sc.control.getMouseY());
     this.contextScaleUniform.set1f(this.system.contextScale);

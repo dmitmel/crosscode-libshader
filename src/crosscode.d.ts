@@ -29,6 +29,8 @@ declare global {
     class System {
       canvas: HTMLCanvasElement;
       webGLRenderer: WebGLRenderer | null;
+      width: number;
+      height: number;
       contextScale: number;
       screenWidth: number;
       screenHeight: number;
