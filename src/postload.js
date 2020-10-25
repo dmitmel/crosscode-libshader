@@ -13,16 +13,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-/* global ig, sc */
+/* global ig */
 
-import { WebGLRenderer } from './renderer.js';
+import { Renderer } from './renderer.js';
 
 /**
- * @param {string} vertexShaderSrc
- * @param {string} fragmentShaderSrc
- * @param {HTMLImageElement} lutTextureData
+ * @param {import('./renderer').RendererResources} rendererResources
  */
-export default function run(vertexShaderSrc, fragmentShaderSrc, lutTextureData) {
+export function inject(rendererResources) {
   ig.module('libshader')
     .requires(
       'impact.base.system',
@@ -35,68 +33,45 @@ export default function run(vertexShaderSrc, fragmentShaderSrc, lutTextureData) 
       ig.System.inject({
         webGLRenderer: null,
 
+        // NOTE: resize is always called in the constructor of ig.System
         resize(width, height, scale) {
-          let { webGLRenderer } = this;
-          if (webGLRenderer == null) {
-            let canvasGL = ig.$new('canvas');
-            canvasGL.width = width;
-            canvasGL.height = height;
-
-            let id = this.canvas.getAttribute('id');
-            this.canvas.removeAttribute('id');
-            canvasGL.setAttribute('id', id);
-            this.inputDom.replaceChild(canvasGL, this.canvas);
-
-            webGLRenderer = new WebGLRenderer(
-              canvasGL,
-              this,
-              vertexShaderSrc,
-              fragmentShaderSrc,
-              lutTextureData,
-            );
-            this.webGLRenderer = webGLRenderer;
+          if (this.webGLRenderer == null) {
+            this.webGLRenderer = new Renderer(rendererResources, this.canvas);
           }
-
           this.parent(width, height, scale);
-          if (webGLRenderer != null) webGLRenderer.onResize();
+          this.webGLRenderer.onResize(this.screenWidth, this.screenHeight);
         },
 
         setCanvasSize(width, height, hideBorder) {
           this.parent(width, height, hideBorder);
-          let { webGLRenderer } = ig.system;
-          if (webGLRenderer != null) webGLRenderer.onResize();
+          this.webGLRenderer.onResize(this.screenWidth, this.screenHeight);
         },
       });
 
       ig.Game.inject({
         finalDraw() {
           this.parent();
-          let { webGLRenderer } = ig.system;
-          if (webGLRenderer != null) webGLRenderer.render();
+          ig.system.webGLRenderer.render();
         },
       });
 
+      // ig.Input is created after ig.System, so ig.system can be assumed to exist
       ig.Input.inject({
         mousemove(event) {
-          let { webGLRenderer } = ig.system;
-          if (webGLRenderer != null) {
-            let { getMouseCoords } = ig.Input;
+          let { getMouseCoords } = ig.Input;
 
-            try {
-              getMouseCoords(this.mouse, event, webGLRenderer.canvas);
-              webGLRenderer.transformScreenPoint(this.mouse);
+          try {
+            getMouseCoords(this.mouse, event, ig.system.webGLRenderer.canvas);
+            ig.system.webGLRenderer.transformScreenPoint(this.mouse);
 
-              ig.Input.getMouseCoords = () => {
-                // skip the first call, which is the only one
-                ig.Input.getMouseCoords = getMouseCoords;
-              };
-
-              this.parent(event);
-            } finally {
+            ig.Input.getMouseCoords = () => {
+              // skip the first call, which is the only one
               ig.Input.getMouseCoords = getMouseCoords;
-            }
-          } else {
+            };
+
             this.parent(event);
+          } finally {
+            ig.Input.getMouseCoords = getMouseCoords;
           }
         },
       });

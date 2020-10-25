@@ -15,43 +15,42 @@
 
 import * as ngl from './ngl/all.js';
 import { GL } from './ngl/core.js';
+import { ResourceLoader } from './resources.js';
+import { RetroTVPass, RetroTVPassResources } from './passes/retro-tv.js';
 
-export class WebGLRenderer {
-  private readonly gl: GL;
+export class RendererResources {
+  public retroTVPassResources: RetroTVPassResources;
 
-  private readonly program: ngl.Program;
-  private readonly textureUniform: ngl.Uniform;
-  private readonly lutTextureUniform: ngl.Uniform;
-  private readonly randomSeedUniform: ngl.Uniform;
-  private readonly randomUniform: ngl.Uniform;
-  private readonly timeUniform: ngl.Uniform;
-  private readonly sizeUniform: ngl.Uniform;
-  private readonly realSizeUniform: ngl.Uniform;
-  private readonly mouseUniform: ngl.Uniform;
-  private readonly contextScaleUniform: ngl.Uniform;
+  public constructor(loader: ResourceLoader) {
+    this.retroTVPassResources = new RetroTVPassResources(loader);
+  }
+}
+
+export class Renderer {
+  public readonly canvas: HTMLCanvasElement;
+  public readonly gl: GL;
+  public readonly canvas2D: HTMLCanvasElement;
 
   private readonly vertexBuffer: WebGLBuffer;
-
   private readonly canvasTexture: ngl.Texture2D;
-  private readonly lutTexture: ngl.Texture2D;
+  private readonly retroTVPass: RetroTVPass;
 
-  public constructor(
-    public readonly canvas: HTMLCanvasElement,
-    public readonly system: ig.System,
-    vertexShaderSrc: string,
-    fragmentShaderSrc: string,
-    lutTextureData: HTMLImageElement,
-  ) {
-    let gl = canvas.getContext('webgl2');
+  public constructor(resources: RendererResources, canvas2D: HTMLCanvasElement) {
+    this.canvas2D = canvas2D;
+
+    this.canvas = document.createElement('canvas');
+    this.canvas.width = canvas2D.width;
+    this.canvas.height = canvas2D.height;
+    let gl = this.canvas.getContext('webgl2');
     if (gl == null) throw new Error('Failed to initialize WebGL2 context');
     this.gl = gl;
 
-    let vertexShader = ngl.Shader.easyCreate(this.gl, ngl.ShaderType.Vertex, vertexShaderSrc);
-    let fragmentShader = ngl.Shader.easyCreate(this.gl, ngl.ShaderType.Fragment, fragmentShaderSrc);
-    this.program = ngl.Program.easyCreate(this.gl, vertexShader, fragmentShader);
-    vertexShader.free();
-    fragmentShader.free();
-    this.program.bind();
+    let id = canvas2D.getAttribute('id') ?? 'canvas';
+    canvas2D.removeAttribute('id');
+    this.canvas.setAttribute('id', id);
+    canvas2D.replaceWith(this.canvas);
+
+    this.retroTVPass = new RetroTVPass(this, resources.retroTVPassResources);
 
     this.vertexBuffer = gl.createBuffer()!;
     gl.bindBuffer(GL.ARRAY_BUFFER, this.vertexBuffer);
@@ -68,11 +67,11 @@ export class WebGLRenderer {
       GL.STATIC_DRAW,
     );
 
-    let positionAttrib = this.program.getAttribute('a_position');
+    let positionAttrib = this.retroTVPass.program.getAttribute('a_position');
     gl.vertexAttribPointer(positionAttrib, 2, GL.FLOAT, false, 4 * ngl.SIZE_OF_FLOAT, 0);
     gl.enableVertexAttribArray(positionAttrib);
 
-    let texcoordAttrib = this.program.getAttribute('a_texcoord');
+    let texcoordAttrib = this.retroTVPass.program.getAttribute('a_texcoord');
     gl.vertexAttribPointer(
       texcoordAttrib,
       2,
@@ -83,66 +82,38 @@ export class WebGLRenderer {
     );
     gl.enableVertexAttribArray(texcoordAttrib);
 
-    this.textureUniform = this.program.getUniform('u_tex');
-    this.lutTextureUniform = this.program.getUniform('u_tex_lut');
-    this.randomSeedUniform = this.program.getUniform('u_random_seed').set1f(Math.random());
-    this.randomUniform = this.program.getUniform('u_random');
-    this.timeUniform = this.program.getUniform('u_time');
-    this.sizeUniform = this.program.getUniform('u_size');
-    this.realSizeUniform = this.program.getUniform('u_real_size');
-    this.mouseUniform = this.program.getUniform('u_mouse');
-    this.contextScaleUniform = this.program.getUniform('u_context_scale');
-
     this.canvasTexture = ngl.Texture2D.easyCreate(gl);
-    this.lutTexture = ngl.Texture2D.easyCreate(gl).setData(ngl.TextureFormat.RGBA, lutTextureData);
 
     // NOTE: onResize doesn't need to be called in this constructor!
   }
 
   public free(): void {
-    this.program.free();
+    this.retroTVPass.free();
     this.gl.deleteBuffer(this.vertexBuffer);
     this.canvasTexture.free();
-    this.lutTexture.free();
+  }
+
+  public onResize(screenWidth: number, screenHeight: number): void {
+    let { canvas2D, canvas: canvasGL } = this;
+    canvasGL.width = canvas2D.width;
+    canvasGL.height = canvas2D.height;
+    canvasGL.style.width = `${screenWidth}px`;
+    canvasGL.style.height = `${screenHeight}px`;
+    this.gl.viewport(0, 0, canvasGL.width, canvasGL.height);
   }
 
   public render(): void {
-    let { gl } = this;
-    let canvas2D = this.system.canvas;
+    this.canvasTexture.bind().setData(ngl.TextureFormat.RGBA, this.canvas2D);
 
-    gl.activeTexture(GL.TEXTURE0);
-    this.canvasTexture.bind().setData(ngl.TextureFormat.RGBA, canvas2D);
-
-    gl.activeTexture(GL.TEXTURE1);
-    this.lutTexture.bind();
-
-    this.textureUniform.set1i(0);
-    this.lutTextureUniform.set1i(1);
-    this.timeUniform.set1f(ig.Timer.time);
-    this.randomUniform.set1f(Math.random());
-    this.sizeUniform.set2f(ig.system.width, ig.system.height);
-    this.realSizeUniform.set2f(canvas2D.width, canvas2D.height);
-    this.mouseUniform.set2f(sc.control.getMouseX(), sc.control.getMouseY());
-    this.contextScaleUniform.set1f(this.system.contextScale);
-
-    gl.drawArrays(GL.TRIANGLE_STRIP, 0, 4);
-  }
-
-  public onResize(): void {
-    let canvasGL = this.canvas;
-    let canvas2D = this.system.canvas;
-    canvasGL.width = canvas2D.width;
-    canvasGL.height = canvas2D.height;
-    canvasGL.style.width = `${this.system.screenWidth}px`;
-    canvasGL.style.height = `${this.system.screenHeight}px`;
-    this.gl.viewport(0, 0, canvasGL.width, canvasGL.height);
+    this.retroTVPass.prepareToRender(this.canvasTexture);
+    this.gl.drawArrays(GL.TRIANGLE_STRIP, 0, 4);
   }
 
   public transformScreenPoint(dest: Vec2): void {
     const SCREEN_CURVATURE = 0.2;
 
     let { x, y } = dest;
-    let { screenWidth, screenHeight } = this.system;
+    let { screenWidth, screenHeight } = ig.system;
     x /= screenWidth;
     y /= screenHeight;
 

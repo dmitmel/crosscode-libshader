@@ -69,7 +69,8 @@ export class Program implements BindableObject<WebGLProgram> {
     if (!program.link()) {
       throw new Error(program.getInfoLog()!);
     }
-    return program.detachShader(vertexShader).detachShader(fragmentShader);
+    program.detachShader(vertexShader).detachShader(fragmentShader);
+    return program.bind();
   }
 
   public free(): void {

@@ -15,7 +15,7 @@
 
 // ultimate-crosscode-typedefs are not used due to compilation speed concerns
 
-import { WebGLRenderer } from './renderer';
+import { Renderer } from './renderer';
 
 export {};
 
@@ -28,7 +28,7 @@ declare global {
   namespace ig {
     class System {
       canvas: HTMLCanvasElement;
-      webGLRenderer: WebGLRenderer | null;
+      webGLRenderer: Renderer;
       width: number;
       height: number;
       contextScale: number;

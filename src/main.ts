@@ -13,35 +13,21 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import runPostload from './postload.js';
+import * as postload from './postload.js';
+import { Renderer, RendererResources } from './renderer.js';
+import { ResourceLoader } from './resources.js';
 
 export default class LibshaderPlugin {
-  private baseDirectory: string;
+  public baseDir: string;
 
   public constructor(mod: { baseDirectory: string }) {
-    this.baseDirectory = mod.baseDirectory;
-  }
-
-  private async readFile(url: string): Promise<string> {
-    let response = await fetch(`/${this.baseDirectory}${url}`);
-    return await response.text();
-  }
-
-  private async loadImage(url: string): Promise<HTMLImageElement> {
-    return new Promise((resolve, reject) => {
-      let img = new Image();
-      img.src = `/${this.baseDirectory}${url}`;
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error(`Failed to load image '${url}'`));
-    });
+    this.baseDir = mod.baseDirectory;
   }
 
   public async postload(): Promise<void> {
-    let [vertexShaderSrc, fragmentShaderSrc, lutTextureData] = await Promise.all([
-      this.readFile('shader.vert'),
-      this.readFile('shader.frag'),
-      this.loadImage('lut.png'),
-    ]);
-    return runPostload(vertexShaderSrc, fragmentShaderSrc, lutTextureData);
+    let loader = new ResourceLoader();
+    let resources = new RendererResources(loader);
+    await loader.loadAll(this.baseDir);
+    return postload.inject(resources);
   }
 }
