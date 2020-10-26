@@ -30,16 +30,21 @@ export const VERTEX_ATTRIB_POSITION_LOCATION = 0;
 export const VERTEX_ATTRIB_TEXCOORD_LOCATION = 1;
 
 export abstract class Pass<R extends PassResources> {
-  public readonly program: ngl.Program;
-  public randomSeedUniform!: ngl.Uniform;
-  public uniformRandom!: ngl.Uniform;
-  public uniformTime!: ngl.Uniform;
-  public uniformSize!: ngl.Uniform;
-  public uniformRealSize!: ngl.Uniform;
-  public uniformMouse!: ngl.Uniform;
-  public uniformContextScale!: ngl.Uniform;
+  protected readonly program: ngl.Program;
+  protected uniformRandomSeed!: ngl.Uniform;
+  protected uniformRandom!: ngl.Uniform;
+  protected uniformTime!: ngl.Uniform;
+  protected uniformSize!: ngl.Uniform;
+  protected uniformRealSize!: ngl.Uniform;
+  protected uniformMouse!: ngl.Uniform;
+  protected uniformContextScale!: ngl.Uniform;
 
-  public constructor(public readonly renderer: Renderer, public resources: R) {
+  protected uniformTexture!: ngl.Uniform;
+
+  protected framebuffer: ngl.Framebuffer;
+  protected outputTexture: ngl.Texture2D;
+
+  public constructor(public readonly renderer: Renderer, resources: R) {
     let { gl } = renderer;
 
     let vertexShader = ngl.Shader.easyCreate(
@@ -62,25 +67,39 @@ export abstract class Pass<R extends PassResources> {
     vertexShader.free();
     fragmentShader.free();
 
+    this.outputTexture = ngl.Texture2D.easyCreate(gl);
+    this.framebuffer = ngl.Framebuffer.easyCreate(gl).attachColorTexture2D(this.outputTexture, 0);
+    this.framebuffer.unbind();
+
     this.setupUniforms();
   }
 
   public free(): void {
     this.program.free();
+    this.framebuffer.free();
+    this.outputTexture.free();
   }
 
   protected setupUniforms(): void {
-    this.randomSeedUniform = this.program.getUniform('u_random_seed').set1f(Math.random());
+    this.uniformRandomSeed = this.program.getUniform('u_random_seed').set1f(Math.random());
     this.uniformRandom = this.program.getUniform('u_random');
     this.uniformTime = this.program.getUniform('u_time');
     this.uniformSize = this.program.getUniform('u_size');
     this.uniformRealSize = this.program.getUniform('u_real_size');
     this.uniformMouse = this.program.getUniform('u_mouse');
     this.uniformContextScale = this.program.getUniform('u_context_scale');
+    this.uniformTexture = this.program.getUniform('u_tex');
   }
 
-  public prepareToRender(..._args: unknown[]): void {
+  public beginRendering(inputTexture: ngl.Texture2D): void {
     let { canvas } = this.renderer;
+
+    // TODO: reserve data only on canvas resizes
+    this.outputTexture
+      .bind()
+      .reserveData(ngl.TextureFormat.RGBA, canvas.width, canvas.height)
+      .unbind();
+    this.framebuffer.bind();
 
     this.program.bind();
     this.uniformTime.set1f(ig.Timer.time);
@@ -89,6 +108,13 @@ export abstract class Pass<R extends PassResources> {
     this.uniformRealSize.set2f(canvas.width, canvas.height);
     this.uniformMouse.set2f(sc.control.getMouseX(), sc.control.getMouseY());
     this.uniformContextScale.set1f(ig.system.contextScale);
+
+    this.uniformTexture.setTexture2D(inputTexture, 0);
+  }
+
+  public finishRendering(): ngl.Texture2D {
+    // this.framebuffer.unbind();
+    return this.outputTexture;
   }
 
   public transformScreenPoint(dest: Vec2): Vec2 {

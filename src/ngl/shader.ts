@@ -14,6 +14,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { BindableObject, GL, ManagedObject } from './core.js';
+import { Texture2D } from './texture.js';
 
 export enum ShaderType {
   Vertex = GL.VERTEX_SHADER,
@@ -36,7 +37,11 @@ export class Shader implements ManagedObject<WebGLShader> {
   ): Shader {
     let shader = new Shader(gl, type).setSource(source);
     configureBeforeCompilation?.(shader);
-    if (!shader.compile()) throw new Error(shader.getInfoLog()!);
+    if (!shader.compile()) {
+      let log = shader.getInfoLog()!;
+      shader.free();
+      throw new Error(log);
+    }
     return shader;
   }
 
@@ -76,7 +81,11 @@ export class Program implements BindableObject<WebGLProgram> {
   ): Program {
     let program = new Program(gl).attachShader(vertexShader).attachShader(fragmentShader);
     configureBeforeLinking?.(program);
-    if (!program.link()) throw new Error(program.getInfoLog()!);
+    if (!program.link()) {
+      let log = program.getInfoLog()!;
+      program.free();
+      throw new Error(log);
+    }
     program.detachShader(vertexShader).detachShader(fragmentShader);
     return program.bind();
   }
@@ -147,5 +156,10 @@ export class Uniform {
   public set2f(x: number, y: number): this {
     this.gl.uniform2f(this.location, x, y);
     return this;
+  }
+
+  public setTexture2D(texture2D: Texture2D, unit: number): this {
+    texture2D.bindToUnit(unit);
+    return this.set1i(unit);
   }
 }

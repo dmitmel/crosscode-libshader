@@ -15,16 +15,25 @@
 
 import * as ngl from './ngl/all.js';
 import { GL } from './ngl/core.js';
-import { ResourceLoader } from './resources.js';
-import { VERTEX_ATTRIB_POSITION_LOCATION, VERTEX_ATTRIB_TEXCOORD_LOCATION } from './passes/core.js';
+import { ResourceLoader, TextResource } from './resources.js';
+import {
+  Pass,
+  PassResources,
+  VERTEX_ATTRIB_POSITION_LOCATION,
+  VERTEX_ATTRIB_TEXCOORD_LOCATION,
+} from './passes/core.js';
 import { RetroTVPass, RetroTVPassResources } from './passes/retro-tv.js';
 import { LUTPass, LUTPassResources } from './passes/lut.js';
 
 export class RendererResources {
+  public defaultVertexShaderSrc: TextResource;
+  public defaultFragmentShaderSrc: TextResource;
   public lutPassResources: LUTPassResources;
   public retroTVPassResources: RetroTVPassResources;
 
   public constructor(loader: ResourceLoader) {
+    this.defaultVertexShaderSrc = loader.textResource('shaders/default.vert.glsl');
+    this.defaultFragmentShaderSrc = loader.textResource('shaders/default.frag.glsl');
     this.lutPassResources = new LUTPassResources(loader);
     this.retroTVPassResources = new RetroTVPassResources(loader);
   }
@@ -46,8 +55,11 @@ export class Renderer {
 
   private readonly vertexBuffer: ngl.VertexBuffer;
   private readonly canvasTexture: ngl.Texture2D;
-  private readonly lutPass: LUTPass;
-  private readonly retroTVPass: RetroTVPass;
+
+  private readonly defaultProgram: ngl.Program;
+  private readonly defaultProgramUniformTexture: ngl.Uniform;
+
+  private readonly passes: Array<Pass<PassResources>>;
 
   public constructor(resources: RendererResources, canvas2D: HTMLCanvasElement) {
     this.canvas2D = canvas2D;
@@ -84,8 +96,25 @@ export class Renderer {
       },
     ]);
 
-    this.lutPass = new LUTPass(this, resources.lutPassResources);
-    this.retroTVPass = new RetroTVPass(this, resources.retroTVPassResources);
+    let defaultVertexShader = ngl.Shader.easyCreate(
+      gl,
+      ngl.ShaderType.Vertex,
+      resources.defaultVertexShaderSrc.data,
+    );
+    let defaultFragmentShader = ngl.Shader.easyCreate(
+      gl,
+      ngl.ShaderType.Fragment,
+      resources.defaultFragmentShaderSrc.data,
+    );
+    this.defaultProgram = ngl.Program.easyCreate(gl, defaultVertexShader, defaultFragmentShader);
+    defaultVertexShader.free();
+    defaultFragmentShader.free();
+    this.defaultProgramUniformTexture = this.defaultProgram.getUniform('u_tex');
+
+    this.passes = [
+      new LUTPass(this, resources.lutPassResources),
+      new RetroTVPass(this, resources.retroTVPassResources),
+    ];
 
     this.canvasTexture = ngl.Texture2D.easyCreate(gl);
 
@@ -93,8 +122,11 @@ export class Renderer {
   }
 
   public free(): void {
-    this.retroTVPass.free();
-    this.lutPass.free();
+    for (let i = 0, arr = this.passes, len = arr.length; i < len; i++) {
+      let pass = arr[i];
+      pass.free();
+    }
+    this.defaultProgram.free();
     this.canvasTexture.free();
     this.vertexBuffer.free();
   }
@@ -109,17 +141,37 @@ export class Renderer {
   }
 
   public render(): void {
+    this.gl.clearColor(0, 0, 0, 1);
+    this.gl.clear(GL.COLOR_BUFFER_BIT);
+
     this.canvasTexture.bind().setData(ngl.TextureFormat.RGBA, this.canvas2D);
     this.vertexBuffer.bind();
 
-    // this.lutPass.prepareToRender(this.canvasTexture);
-    this.retroTVPass.prepareToRender(this.canvasTexture);
+    let inputTexture = this.canvasTexture;
+
+    for (let i = 0, arr = this.passes, len = arr.length; i < len; i++) {
+      let pass = arr[i];
+      pass.beginRendering(inputTexture);
+      this.drawQuadBuffer();
+      inputTexture = pass.finishRendering();
+    }
+
+    this.gl.bindFramebuffer(GL.FRAMEBUFFER, null);
+
+    this.defaultProgram.bind();
+    this.defaultProgramUniformTexture.setTexture2D(inputTexture, 0);
+    this.drawQuadBuffer();
+  }
+
+  private drawQuadBuffer(): void {
     this.vertexBuffer.draw(ngl.DrawingPrimitive.TriangleStrip, 0, 4);
   }
 
   public transformScreenPoint(dest: Vec2): Vec2 {
-    dest = this.lutPass.transformScreenPoint(dest);
-    dest = this.retroTVPass.transformScreenPoint(dest);
+    for (let i = 0, arr = this.passes, len = arr.length; i < len; i++) {
+      let pass = arr[i];
+      dest = pass.transformScreenPoint(dest);
+    }
     return dest;
   }
 }

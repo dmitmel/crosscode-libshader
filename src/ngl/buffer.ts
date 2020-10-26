@@ -72,12 +72,14 @@ export function setupVertexAttributePointers(
   config: Array<{ location: number; type: AttribDataType; length: number; normalize: boolean }>,
 ): void {
   let stride = 0;
-  for (let attrib of config) {
+  for (let i = 0, len = config.length; i < len; i++) {
+    let attrib = config[i];
     stride += AttribDataType.sizeOf(attrib.type) * attrib.length;
   }
 
   let offset = 0;
-  for (let attrib of config) {
+  for (let i = 0, len = config.length; i < len; i++) {
+    let attrib = config[i];
     let size = AttribDataType.sizeOf(attrib.type) * attrib.length;
     gl.vertexAttribPointer(
       attrib.location,

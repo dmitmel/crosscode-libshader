@@ -28,8 +28,6 @@ export class RetroTVPassResources extends PassResources {
 }
 
 export class RetroTVPass extends Pass<RetroTVPassResources> {
-  public uniformTexture!: ngl.Uniform;
-
   public constructor(renderer: Renderer, resources: RetroTVPassResources) {
     super(renderer, resources);
   }
@@ -40,16 +38,10 @@ export class RetroTVPass extends Pass<RetroTVPassResources> {
 
   protected setupUniforms(): void {
     super.setupUniforms();
-    this.uniformTexture = this.program.getUniform('u_tex');
   }
 
-  public prepareToRender(inputTexture: ngl.Texture2D): void {
-    super.prepareToRender();
-
-    const INPUT_TEXTURE_UNIT = 0;
-
-    inputTexture.bindToUnit(INPUT_TEXTURE_UNIT);
-    this.uniformTexture.set1i(INPUT_TEXTURE_UNIT);
+  public beginRendering(inputTexture: ngl.Texture2D): void {
+    super.beginRendering(inputTexture);
   }
 
   public transformScreenPoint(dest: Vec2): Vec2 {

@@ -1,3 +1,4 @@
+#version 300 es
 // Copyright (C) 2020 Dmytro Meleshko
 //
 // This program is free software: you can redistribute it and/or modify
@@ -13,9 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-export * from './core.js';
+#ifdef GL_ES
+precision highp float;
+#endif
 
-export * from './buffer.js';
-export * from './framebuffer.js';
-export * from './shader.js';
-export * from './texture.js';
+uniform sampler2D u_tex;
+
+in vec2 v_texcoord;
+out vec4 out_color;
+
+void main(void) {
+  out_color = texture(u_tex, v_texcoord);
+}

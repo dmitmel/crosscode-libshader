@@ -30,10 +30,9 @@ export class LUTPassResources extends PassResources {
 }
 
 export class LUTPass extends Pass<LUTPassResources> {
-  public lutTexture: ngl.Texture2D;
+  protected lutTexture: ngl.Texture2D;
 
-  public uniformTexture!: ngl.Uniform;
-  public uniformLutTexture!: ngl.Uniform;
+  protected uniformLutTexture!: ngl.Uniform;
 
   public constructor(renderer: Renderer, resources: LUTPassResources) {
     super(renderer, resources);
@@ -52,20 +51,11 @@ export class LUTPass extends Pass<LUTPassResources> {
 
   protected setupUniforms(): void {
     super.setupUniforms();
-    this.uniformTexture = this.program.getUniform('u_tex');
     this.uniformLutTexture = this.program.getUniform('u_tex_lut');
   }
 
-  public prepareToRender(inputTexture: ngl.Texture2D): void {
-    super.prepareToRender();
-
-    const INPUT_TEXTURE_UNIT = 0;
-    const LUT_TEXTURE_UNIT = 1;
-
-    inputTexture.bindToUnit(INPUT_TEXTURE_UNIT);
-    this.uniformTexture.set1i(INPUT_TEXTURE_UNIT);
-
-    this.lutTexture.bindToUnit(LUT_TEXTURE_UNIT);
-    this.uniformLutTexture.set1i(LUT_TEXTURE_UNIT);
+  public beginRendering(inputTexture: ngl.Texture2D): void {
+    super.beginRendering(inputTexture);
+    this.uniformLutTexture.setTexture2D(this.lutTexture, 1);
   }
 }
