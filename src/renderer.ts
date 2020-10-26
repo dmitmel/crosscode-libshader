@@ -44,7 +44,7 @@ export class Renderer {
   public readonly gl: GL;
   public readonly canvas2D: HTMLCanvasElement;
 
-  private readonly vertexBuffer: WebGLBuffer;
+  private readonly vertexBuffer: ngl.VertexBuffer;
   private readonly canvasTexture: ngl.Texture2D;
   private readonly lutPass: LUTPass;
   private readonly retroTVPass: RetroTVPass;
@@ -64,29 +64,25 @@ export class Renderer {
     this.canvas.setAttribute('id', id);
     canvas2D.replaceWith(this.canvas);
 
-    this.vertexBuffer = gl.createBuffer()!;
-    gl.bindBuffer(GL.ARRAY_BUFFER, this.vertexBuffer);
-    gl.bufferData(GL.ARRAY_BUFFER, FULLSCREEN_QUAD_VERTICES, GL.STATIC_DRAW);
-
-    gl.vertexAttribPointer(
-      VERTEX_ATTRIB_POSITION_LOCATION,
-      2,
-      GL.FLOAT,
-      false,
-      4 * ngl.SIZE_OF_FLOAT,
-      0,
+    this.vertexBuffer = ngl.VertexBuffer.easyCreate(gl).setData(
+      FULLSCREEN_QUAD_VERTICES,
+      ngl.BufferUsageHint.StaticDraw,
     );
-    gl.enableVertexAttribArray(VERTEX_ATTRIB_POSITION_LOCATION);
 
-    gl.vertexAttribPointer(
-      VERTEX_ATTRIB_TEXCOORD_LOCATION,
-      2,
-      GL.FLOAT,
-      false,
-      4 * ngl.SIZE_OF_FLOAT,
-      2 * ngl.SIZE_OF_FLOAT,
-    );
-    gl.enableVertexAttribArray(VERTEX_ATTRIB_TEXCOORD_LOCATION);
+    ngl.setupVertexAttributePointers(gl, [
+      {
+        location: VERTEX_ATTRIB_POSITION_LOCATION,
+        type: ngl.AttribDataType.Float,
+        length: 2,
+        normalize: false,
+      },
+      {
+        location: VERTEX_ATTRIB_TEXCOORD_LOCATION,
+        type: ngl.AttribDataType.Float,
+        length: 2,
+        normalize: false,
+      },
+    ]);
 
     this.lutPass = new LUTPass(this, resources.lutPassResources);
     this.retroTVPass = new RetroTVPass(this, resources.retroTVPassResources);
@@ -99,8 +95,8 @@ export class Renderer {
   public free(): void {
     this.retroTVPass.free();
     this.lutPass.free();
-    this.gl.deleteBuffer(this.vertexBuffer);
     this.canvasTexture.free();
+    this.vertexBuffer.free();
   }
 
   public onResize(screenWidth: number, screenHeight: number): void {
@@ -114,10 +110,11 @@ export class Renderer {
 
   public render(): void {
     this.canvasTexture.bind().setData(ngl.TextureFormat.RGBA, this.canvas2D);
+    this.vertexBuffer.bind();
 
     // this.lutPass.prepareToRender(this.canvasTexture);
     this.retroTVPass.prepareToRender(this.canvasTexture);
-    this.gl.drawArrays(GL.TRIANGLE_STRIP, 0, 4);
+    this.vertexBuffer.draw(ngl.DrawingPrimitive.TriangleStrip, 0, 4);
   }
 
   public transformScreenPoint(dest: Vec2): Vec2 {

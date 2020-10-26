@@ -14,5 +14,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 export * from './core.js';
+
+export * from './buffer.js';
 export * from './shader.js';
 export * from './texture.js';

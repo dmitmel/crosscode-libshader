@@ -16,11 +16,6 @@
 export type GL = WebGL2RenderingContext;
 export const GL = WebGL2RenderingContext;
 
-export const SIZE_OF_BYTE = 1;
-export const SIZE_OF_SHORT = 2;
-export const SIZE_OF_INT = 4;
-export const SIZE_OF_FLOAT = 4;
-
 export interface ManagedObject<O extends WebGLObject> {
   handle: O;
   gl: GL;
