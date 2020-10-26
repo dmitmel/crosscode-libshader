@@ -21,12 +21,12 @@ import { RetroTVPass, RetroTVPassResources } from './passes/retro-tv.js';
 import { LUTPass, LUTPassResources } from './passes/lut.js';
 
 export class RendererResources {
-  public retroTVPassResources: RetroTVPassResources;
   public lutPassResources: LUTPassResources;
+  public retroTVPassResources: RetroTVPassResources;
 
   public constructor(loader: ResourceLoader) {
-    this.retroTVPassResources = new RetroTVPassResources(loader);
     this.lutPassResources = new LUTPassResources(loader);
+    this.retroTVPassResources = new RetroTVPassResources(loader);
   }
 }
 
@@ -46,8 +46,8 @@ export class Renderer {
 
   private readonly vertexBuffer: WebGLBuffer;
   private readonly canvasTexture: ngl.Texture2D;
-  private readonly retroTVPass: RetroTVPass;
   private readonly lutPass: LUTPass;
+  private readonly retroTVPass: RetroTVPass;
 
   public constructor(resources: RendererResources, canvas2D: HTMLCanvasElement) {
     this.canvas2D = canvas2D;
@@ -88,8 +88,8 @@ export class Renderer {
     );
     gl.enableVertexAttribArray(VERTEX_ATTRIB_TEXCOORD_LOCATION);
 
-    this.retroTVPass = new RetroTVPass(this, resources.retroTVPassResources);
     this.lutPass = new LUTPass(this, resources.lutPassResources);
+    this.retroTVPass = new RetroTVPass(this, resources.retroTVPassResources);
 
     this.canvasTexture = ngl.Texture2D.easyCreate(gl);
 
@@ -115,23 +115,14 @@ export class Renderer {
   public render(): void {
     this.canvasTexture.bind().setData(ngl.TextureFormat.RGBA, this.canvas2D);
 
-    this.retroTVPass.prepareToRender(this.canvasTexture);
     // this.lutPass.prepareToRender(this.canvasTexture);
+    this.retroTVPass.prepareToRender(this.canvasTexture);
     this.gl.drawArrays(GL.TRIANGLE_STRIP, 0, 4);
   }
 
-  public transformScreenPoint(dest: Vec2): void {
-    const SCREEN_CURVATURE = 0.2;
-
-    let { x, y } = dest;
-    let { screenWidth, screenHeight } = ig.system;
-    x /= screenWidth;
-    y /= screenHeight;
-
-    let cx = 0.5 - x;
-    let cy = 0.5 - y;
-    let distortion = (cx * cx + cy * cy) * SCREEN_CURVATURE;
-    dest.x = (x - cx * (1 + distortion) * distortion) * screenWidth;
-    dest.y = (y - cy * (1 + distortion) * distortion) * screenHeight;
+  public transformScreenPoint(dest: Vec2): Vec2 {
+    dest = this.lutPass.transformScreenPoint(dest);
+    dest = this.retroTVPass.transformScreenPoint(dest);
+    return dest;
   }
 }

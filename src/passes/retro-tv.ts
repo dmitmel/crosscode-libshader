@@ -51,4 +51,21 @@ export class RetroTVPass extends Pass<RetroTVPassResources> {
     inputTexture.bindToUnit(INPUT_TEXTURE_UNIT);
     this.uniformTexture.set1i(INPUT_TEXTURE_UNIT);
   }
+
+  public transformScreenPoint(dest: Vec2): Vec2 {
+    const SCREEN_CURVATURE = 0.2;
+
+    let { x, y } = dest;
+    let { screenWidth, screenHeight } = ig.system;
+    x /= screenWidth;
+    y /= screenHeight;
+
+    let cx = 0.5 - x;
+    let cy = 0.5 - y;
+    let distortion = (cx * cx + cy * cy) * SCREEN_CURVATURE;
+    dest.x = (x - cx * (1 + distortion) * distortion) * screenWidth;
+    dest.y = (y - cy * (1 + distortion) * distortion) * screenHeight;
+
+    return dest;
+  }
 }

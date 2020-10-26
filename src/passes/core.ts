@@ -90,4 +90,8 @@ export abstract class Pass<R extends PassResources> {
     this.uniformMouse.set2f(sc.control.getMouseX(), sc.control.getMouseY());
     this.uniformContextScale.set1f(ig.system.contextScale);
   }
+
+  public transformScreenPoint(dest: Vec2): Vec2 {
+    return dest;
+  }
 }
