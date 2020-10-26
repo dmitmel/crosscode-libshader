@@ -28,11 +28,15 @@ export class Shader implements ManagedObject<WebGLShader> {
     this.handle = handle;
   }
 
-  public static easyCreate(gl: GL, type: ShaderType, source: string): Shader {
+  public static easyCreate(
+    gl: GL,
+    type: ShaderType,
+    source: string,
+    configureBeforeCompilation?: ((shader: Shader) => void) | null,
+  ): Shader {
     let shader = new Shader(gl, type).setSource(source);
-    if (!shader.compile()) {
-      throw new Error(shader.getInfoLog()!);
-    }
+    configureBeforeCompilation?.(shader);
+    if (!shader.compile()) throw new Error(shader.getInfoLog()!);
     return shader;
   }
 
@@ -64,11 +68,15 @@ export class Program implements BindableObject<WebGLProgram> {
     this.handle = handle;
   }
 
-  public static easyCreate(gl: GL, vertexShader: Shader, fragmentShader: Shader): Program {
+  public static easyCreate(
+    gl: GL,
+    vertexShader: Shader,
+    fragmentShader: Shader,
+    configureBeforeLinking?: ((program: Program) => void) | null,
+  ): Program {
     let program = new Program(gl).attachShader(vertexShader).attachShader(fragmentShader);
-    if (!program.link()) {
-      throw new Error(program.getInfoLog()!);
-    }
+    configureBeforeLinking?.(program);
+    if (!program.link()) throw new Error(program.getInfoLog()!);
     program.detachShader(vertexShader).detachShader(fragmentShader);
     return program.bind();
   }
@@ -94,6 +102,11 @@ export class Program implements BindableObject<WebGLProgram> {
 
   public detachShader(shader: Shader): this {
     this.gl.detachShader(this.handle, shader.handle);
+    return this;
+  }
+
+  public requestAttributeLocation(name: string, location: number): this {
+    this.gl.bindAttribLocation(this.handle, location, name);
     return this;
   }
 

@@ -44,6 +44,11 @@ export class Texture2D implements BindableObject<WebGLTexture> {
     return this;
   }
 
+  public bindToUnit(unit: number): this {
+    this.gl.activeTexture(GL.TEXTURE0 + unit);
+    return this.bind();
+  }
+
   public unbind(): void {
     this.gl.bindTexture(GL.TEXTURE_2D, null);
   }

@@ -14,7 +14,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import * as postload from './postload.js';
-import { Renderer, RendererResources } from './renderer.js';
+import { RendererResources } from './renderer.js';
 import { ResourceLoader } from './resources.js';
 
 export default class LibshaderPlugin {

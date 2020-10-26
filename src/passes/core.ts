@@ -26,6 +26,9 @@ export abstract class PassResources {
   }
 }
 
+export const VERTEX_ATTRIB_POSITION_LOCATION = 0;
+export const VERTEX_ATTRIB_TEXCOORD_LOCATION = 1;
+
 export abstract class Pass<R extends PassResources> {
   public readonly program: ngl.Program;
   public randomSeedUniform!: ngl.Uniform;
@@ -49,7 +52,13 @@ export abstract class Pass<R extends PassResources> {
       ngl.ShaderType.Fragment,
       resources.fragmentShaderSrc.data,
     );
-    this.program = ngl.Program.easyCreate(gl, vertexShader, fragmentShader);
+
+    this.program = ngl.Program.easyCreate(gl, vertexShader, fragmentShader, (program) => {
+      program
+        .requestAttributeLocation('a_position', VERTEX_ATTRIB_POSITION_LOCATION)
+        .requestAttributeLocation('a_texcoord', VERTEX_ATTRIB_TEXCOORD_LOCATION);
+    });
+
     vertexShader.free();
     fragmentShader.free();
 
@@ -73,6 +82,7 @@ export abstract class Pass<R extends PassResources> {
   public prepareToRender(..._args: unknown[]): void {
     let { canvas } = this.renderer;
 
+    this.program.bind();
     this.uniformTime.set1f(ig.Timer.time);
     this.uniformRandom.set1f(Math.random());
     this.uniformSize.set2f(ig.system.width, ig.system.height);

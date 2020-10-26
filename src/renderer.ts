@@ -16,15 +16,28 @@
 import * as ngl from './ngl/all.js';
 import { GL } from './ngl/core.js';
 import { ResourceLoader } from './resources.js';
+import { VERTEX_ATTRIB_POSITION_LOCATION, VERTEX_ATTRIB_TEXCOORD_LOCATION } from './passes/core.js';
 import { RetroTVPass, RetroTVPassResources } from './passes/retro-tv.js';
+import { LUTPass, LUTPassResources } from './passes/lut.js';
 
 export class RendererResources {
   public retroTVPassResources: RetroTVPassResources;
+  public lutPassResources: LUTPassResources;
 
   public constructor(loader: ResourceLoader) {
     this.retroTVPassResources = new RetroTVPassResources(loader);
+    this.lutPassResources = new LUTPassResources(loader);
   }
 }
+
+// prettier-ignore
+const FULLSCREEN_QUAD_VERTICES = new Float32Array([
+  // x     y    u    v
+    1.0,  1.0, 1.0, 0.0,
+   -1.0,  1.0, 0.0, 0.0,
+    1.0, -1.0, 1.0, 1.0,
+   -1.0, -1.0, 0.0, 1.0,
+]);
 
 export class Renderer {
   public readonly canvas: HTMLCanvasElement;
@@ -34,6 +47,7 @@ export class Renderer {
   private readonly vertexBuffer: WebGLBuffer;
   private readonly canvasTexture: ngl.Texture2D;
   private readonly retroTVPass: RetroTVPass;
+  private readonly lutPass: LUTPass;
 
   public constructor(resources: RendererResources, canvas2D: HTMLCanvasElement) {
     this.canvas2D = canvas2D;
@@ -50,37 +64,32 @@ export class Renderer {
     this.canvas.setAttribute('id', id);
     canvas2D.replaceWith(this.canvas);
 
-    this.retroTVPass = new RetroTVPass(this, resources.retroTVPassResources);
-
     this.vertexBuffer = gl.createBuffer()!;
     gl.bindBuffer(GL.ARRAY_BUFFER, this.vertexBuffer);
-    gl.bufferData(
-      GL.ARRAY_BUFFER,
-      // prettier-ignore
-      new Float32Array([
-        // x     y    u    v
-          1.0,  1.0, 1.0, 0.0,
-         -1.0,  1.0, 0.0, 0.0,
-          1.0, -1.0, 1.0, 1.0,
-         -1.0, -1.0, 0.0, 1.0,
-      ]),
-      GL.STATIC_DRAW,
-    );
+    gl.bufferData(GL.ARRAY_BUFFER, FULLSCREEN_QUAD_VERTICES, GL.STATIC_DRAW);
 
-    let positionAttrib = this.retroTVPass.program.getAttribute('a_position');
-    gl.vertexAttribPointer(positionAttrib, 2, GL.FLOAT, false, 4 * ngl.SIZE_OF_FLOAT, 0);
-    gl.enableVertexAttribArray(positionAttrib);
-
-    let texcoordAttrib = this.retroTVPass.program.getAttribute('a_texcoord');
     gl.vertexAttribPointer(
-      texcoordAttrib,
+      VERTEX_ATTRIB_POSITION_LOCATION,
+      2,
+      GL.FLOAT,
+      false,
+      4 * ngl.SIZE_OF_FLOAT,
+      0,
+    );
+    gl.enableVertexAttribArray(VERTEX_ATTRIB_POSITION_LOCATION);
+
+    gl.vertexAttribPointer(
+      VERTEX_ATTRIB_TEXCOORD_LOCATION,
       2,
       GL.FLOAT,
       false,
       4 * ngl.SIZE_OF_FLOAT,
       2 * ngl.SIZE_OF_FLOAT,
     );
-    gl.enableVertexAttribArray(texcoordAttrib);
+    gl.enableVertexAttribArray(VERTEX_ATTRIB_TEXCOORD_LOCATION);
+
+    this.retroTVPass = new RetroTVPass(this, resources.retroTVPassResources);
+    this.lutPass = new LUTPass(this, resources.lutPassResources);
 
     this.canvasTexture = ngl.Texture2D.easyCreate(gl);
 
@@ -89,6 +98,7 @@ export class Renderer {
 
   public free(): void {
     this.retroTVPass.free();
+    this.lutPass.free();
     this.gl.deleteBuffer(this.vertexBuffer);
     this.canvasTexture.free();
   }
@@ -106,6 +116,7 @@ export class Renderer {
     this.canvasTexture.bind().setData(ngl.TextureFormat.RGBA, this.canvas2D);
 
     this.retroTVPass.prepareToRender(this.canvasTexture);
+    // this.lutPass.prepareToRender(this.canvasTexture);
     this.gl.drawArrays(GL.TRIANGLE_STRIP, 0, 4);
   }
 
