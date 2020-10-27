@@ -15,16 +15,14 @@
 
 import { Pass, PassResources } from './core.js';
 import * as ngl from '../ngl/all.js';
-import { ImageResource, ResourceLoader, TextResource } from '../resources.js';
+import { ImageResource, ResourceLoader } from '../resources.js';
 import { Renderer } from '../renderer.js';
 
 export class LUTPassResources extends PassResources {
-  public fragmentShaderSrc: TextResource;
   public lutTextureData: ImageResource;
 
   public constructor(loader: ResourceLoader) {
-    super(loader);
-    this.fragmentShaderSrc = loader.textResource('shaders/lut.frag.glsl');
+    super(loader, 'lut');
     this.lutTextureData = loader.imageResource('lut.png');
   }
 }

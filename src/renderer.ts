@@ -42,10 +42,10 @@ export class RendererResources {
 // prettier-ignore
 const FULLSCREEN_QUAD_VERTICES = new Float32Array([
   // x     y    u    v
-    1.0,  1.0, 1.0, 0.0,
-   -1.0,  1.0, 0.0, 0.0,
-    1.0, -1.0, 1.0, 1.0,
-   -1.0, -1.0, 0.0, 1.0,
+    1.0,  1.0, 1.0, 1.0,
+   -1.0,  1.0, 0.0, 1.0,
+    1.0, -1.0, 1.0, 0.0,
+   -1.0, -1.0, 0.0, 0.0,
 ]);
 
 export class Renderer {
@@ -58,6 +58,7 @@ export class Renderer {
 
   private readonly defaultProgram: ngl.Program;
   private readonly defaultProgramUniformTexture: ngl.Uniform;
+  private readonly defaultProgramUniformTransform: ngl.Uniform;
 
   private readonly passes: Array<Pass<PassResources>>;
 
@@ -109,7 +110,12 @@ export class Renderer {
     this.defaultProgram = ngl.Program.easyCreate(gl, defaultVertexShader, defaultFragmentShader);
     defaultVertexShader.free();
     defaultFragmentShader.free();
+
     this.defaultProgramUniformTexture = this.defaultProgram.getUniform('u_tex');
+    this.defaultProgramUniformTransform = this.defaultProgram.getUniform('u_transform').setMat2(
+      // flip on the Y axis
+      [1, 0, 0, -1],
+    );
 
     this.passes = [
       new LUTPass(this, resources.lutPassResources),

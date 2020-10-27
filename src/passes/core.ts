@@ -19,10 +19,15 @@ import { ResourceLoader, TextResource } from '../resources.js';
 
 export abstract class PassResources {
   public vertexShaderSrc: TextResource;
-  public abstract fragmentShaderSrc: TextResource;
+  public fragmentShaderSrc: TextResource;
 
-  public constructor(loader: ResourceLoader) {
-    this.vertexShaderSrc = loader.textResource('shaders/default.vert.glsl');
+  public constructor(
+    loader: ResourceLoader,
+    fragmentShaderName: string,
+    vertexShaderName = 'default',
+  ) {
+    this.vertexShaderSrc = loader.textResource(`shaders/${vertexShaderName}.vert.glsl`);
+    this.fragmentShaderSrc = loader.textResource(`shaders/${fragmentShaderName}.frag.glsl`);
   }
 }
 
@@ -31,6 +36,8 @@ export const VERTEX_ATTRIB_TEXCOORD_LOCATION = 1;
 
 export abstract class Pass<R extends PassResources> {
   protected readonly program: ngl.Program;
+  protected uniformTransform!: ngl.Uniform;
+
   protected uniformRandomSeed!: ngl.Uniform;
   protected uniformRandom!: ngl.Uniform;
   protected uniformTime!: ngl.Uniform;
@@ -81,6 +88,10 @@ export abstract class Pass<R extends PassResources> {
   }
 
   protected setupUniforms(): void {
+    this.uniformTransform = this.program.getUniform('u_transform').setMat2(
+      // the identity matrix
+      [1, 0, 0, 1],
+    );
     this.uniformRandomSeed = this.program.getUniform('u_random_seed').set1f(Math.random());
     this.uniformRandom = this.program.getUniform('u_random');
     this.uniformTime = this.program.getUniform('u_time');

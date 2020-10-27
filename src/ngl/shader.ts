@@ -158,6 +158,11 @@ export class Uniform {
     return this;
   }
 
+  public setMat2(values: Float32List, transpose = false): this {
+    this.gl.uniformMatrix2fv(this.location, transpose, values);
+    return this;
+  }
+
   public setTexture2D(texture2D: Texture2D, unit: number): this {
     texture2D.bindToUnit(unit);
     return this.set1i(unit);

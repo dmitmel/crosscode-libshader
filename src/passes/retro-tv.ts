@@ -15,15 +15,12 @@
 
 import { Pass, PassResources } from './core.js';
 import * as ngl from '../ngl/all.js';
-import { ResourceLoader, TextResource } from '../resources.js';
+import { ResourceLoader } from '../resources.js';
 import { Renderer } from '../renderer.js';
 
 export class RetroTVPassResources extends PassResources {
-  public fragmentShaderSrc: TextResource;
-
   public constructor(loader: ResourceLoader) {
-    super(loader);
-    this.fragmentShaderSrc = loader.textResource('shaders/retro-tv.frag.glsl');
+    super(loader, 'retro-tv');
   }
 }
 
