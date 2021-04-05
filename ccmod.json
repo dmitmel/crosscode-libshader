@@ -1,0 +1,9 @@
+{
+  "id": "libshader",
+  "version": "0.0.0",
+  "description": "Library for applying shaders to CrossCode (currently contains only a retro-style shader)",
+  "icons": {
+    "24": "icon24.png"
+  },
+  "plugin": "plugin.js"
+}

@@ -1,8 +1,4 @@
 {
-  "name": "libshader",
-  "description": "Library for applying shaders to CrossCode (currently contains only a retro-style shader)",
-  "module": true,
-  "plugin": "dist/main.js",
   "private": true,
   "engines": {
     "node": ">=11.0.0"
