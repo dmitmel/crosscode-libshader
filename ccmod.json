@@ -5,5 +5,5 @@
   "icons": {
     "24": "icon24.png"
   },
-  "plugin": "plugin.js"
+  "plugin": "dist/main.js"
 }
